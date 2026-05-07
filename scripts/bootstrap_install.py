@@ -63,12 +63,102 @@ def main():
         method = "pipx" if shutil.which("pipx") else "pip-user"
 
     if method == "pipx":
-        return install_with_pipx(py, args.project_url, args.yes)
-    if method == "pip-user":
-        return run(py + ["-m", "pip", "install", "--user", args.project_url])
-    if method == "venv":
-        return install_with_venv(py, args.project_url)
-    raise AssertionError("unknown method: {0}".format(method))
+        rc = install_with_pipx(py, args.project_url, args.yes)
+    elif method == "pip-user":
+        rc = run(py + ["-m", "pip", "install", "--user", args.project_url])
+    elif method == "venv":
+        rc = install_with_venv(py, args.project_url)
+    else:
+        raise AssertionError("unknown method: {0}".format(method))
+
+    if rc != 0:
+        return rc
+
+    post_install_fixup()
+    return 0
+
+
+def post_install_fixup():
+    """Remove stale copies and ensure installed commands stay usable."""
+    user_bin = os.path.expanduser("~/.local/bin")
+
+    # Remove old copies in system paths that would shadow the new install
+    for stale in ("/usr/local/bin/ccs", "/usr/local/bin/cc-switch"):
+        if os.path.exists(stale):
+            real = os.path.realpath(stale)
+            new_copy = os.path.join(user_bin, os.path.basename(stale))
+            if os.path.exists(new_copy) and os.path.realpath(new_copy) != real:
+                print("Removing stale {0} (shadowed by {1})".format(stale, new_copy))
+                try:
+                    os.remove(stale)
+                except OSError:
+                    run_quiet(with_sudo(["rm", "-f", stale]))
+
+    ensure_system_links(user_bin)
+    ensure_user_bin_on_path(user_bin)
+
+    # Verify installation
+    for cmd_name in ("ccs", "cc-switch"):
+        found = shutil.which(cmd_name)
+        if found:
+            print("Installed: {0}".format(found))
+        else:
+            print("Warning: {0} not found on PATH.".format(cmd_name))
+
+
+def ensure_system_links(user_bin):
+    """Expose commands through /usr/local/bin when possible."""
+    system_bin = "/usr/local/bin"
+    if os.name == "nt" or not os.path.isdir(system_bin):
+        return
+
+    for cmd_name in ("ccs", "cc-switch"):
+        source = os.path.join(user_bin, cmd_name)
+        target = os.path.join(system_bin, cmd_name)
+        if not os.path.exists(source):
+            continue
+        if os.path.realpath(target) == os.path.realpath(source):
+            continue
+        rc = run_quiet(with_sudo(["ln", "-sf", source, target]))
+        if rc == 0:
+            print("Linked: {0} -> {1}".format(target, source))
+
+
+def ensure_user_bin_on_path(user_bin):
+    """Make ~/.local/bin available now and in future shell sessions."""
+    path_dirs = os.environ.get("PATH", "").split(os.pathsep)
+    if user_bin not in path_dirs:
+        os.environ["PATH"] = user_bin + os.pathsep + os.environ.get("PATH", "")
+        print("Added {0} to PATH for this session.".format(user_bin))
+
+    block = (
+        "# cc-switch-tool\n"
+        'case ":$PATH:" in\n'
+        '  *":$HOME/.local/bin:"*) ;;\n'
+        '  *) export PATH="$HOME/.local/bin:$PATH" ;;\n'
+        "esac"
+    )
+    for profile_path in ("~/.profile", "~/.bash_profile", "~/.bashrc"):
+        append_shell_block(os.path.expanduser(profile_path), block)
+
+
+def append_shell_block(path, block):
+    marker = "# cc-switch-tool"
+    try:
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as handle:
+                content = handle.read()
+            if marker in content:
+                return
+        else:
+            content = ""
+        with open(path, "a", encoding="utf-8") as handle:
+            if content and not content.endswith("\n"):
+                handle.write("\n")
+            handle.write("\n{0}\n".format(block))
+        print("Updated shell profile: {0}".format(path))
+    except OSError as exc:
+        print("Warning: could not update {0}: {1}".format(path, exc))
 
 
 def find_compatible_python():

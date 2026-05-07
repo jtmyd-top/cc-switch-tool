@@ -12,6 +12,7 @@ def apply_profile(profile: dict[str, str]) -> list[str]:
     settings = read_json(SETTINGS_PATH, default={})
     # Remove apiKeyHelper to avoid "two keys" warning from Claude Code
     settings.pop("apiKeyHelper", None)
+    set_nested(settings, ("env", "ANTHROPIC_AUTH_TOKEN"), profile["api_key"])
     set_nested(settings, ("env", "ANTHROPIC_API_KEY"), profile["api_key"])
     set_nested(settings, ("env", "ANTHROPIC_BASE_URL"), profile["base_url"])
     if profile.get("model"):
@@ -26,6 +27,7 @@ def apply_profile(profile: dict[str, str]) -> list[str]:
 
 def env_exports(profile: dict[str, str]) -> dict[str, str]:
     exports = {
+        "ANTHROPIC_AUTH_TOKEN": profile["api_key"],
         "ANTHROPIC_API_KEY": profile["api_key"],
         "ANTHROPIC_BASE_URL": profile["base_url"],
     }
