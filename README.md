@@ -1,32 +1,104 @@
 # cc-switch-tool
 
-`cc-switch` manages relay/proxy endpoint profiles for Claude Code, Codex CLI, and Gemini CLI.
+[中文文档](README.zh-CN.md)
 
-## Install
+`cc-switch-tool` is a lightweight Python profile switcher for Claude Code,
+Codex CLI, and Gemini CLI relay/proxy endpoints.
 
-From this directory:
+It is useful on Linux machines where a native `cc-switch` binary cannot start
+because of system library mismatches, for example:
+
+```text
+cc-switch: error while loading shared libraries: libssl.so.3:
+cannot open shared object file: No such file or directory
+```
+
+Because this project is implemented in Python, it avoids that OpenSSL shared
+library dependency from native binaries.
+
+## Why Use It
+
+Use `cc-switch-tool` when you need to:
+
+- keep multiple relay/proxy profiles for Claude Code, Codex CLI, or Gemini CLI
+- switch endpoints quickly on Linux servers, remote boxes, or shared workstations
+- avoid native binary compatibility issues on older systems
+- sync your profile store across machines through your own WebDAV server
+
+## Features
+
+- Manage profiles for Claude Code, Codex CLI, and Gemini CLI.
+- Switch `base_url`, `api_key`, optional `model`, and Codex `provider`.
+- Interactive TUI when running `cc-switch` or `ccs` without arguments.
+- Chinese / English UI via `--lang`, `CCS_LANG`, or the TUI language menu.
+- WebDAV backup and restore for profile sync across machines.
+- Optional import from GUI `cc-switch` WebDAV backups.
+- Local secret files are written with restrictive permissions where supported.
+- API keys are redacted in `list` and `show` output by default.
+
+## Requirements
+
+- Python 3.9+
+- Linux or another environment where the target CLI config files are available
+- `pipx` recommended for isolated installation
+
+## Installation
+
+Recommended with `pipx`:
 
 ```bash
+pipx install git+https://github.com/jtmyd-top/cc-switch-tool.git
+```
+
+If `pipx` is unavailable:
+
+```bash
+python3 -m pip install --user git+https://github.com/jtmyd-top/cc-switch-tool.git
+```
+
+From a local checkout:
+
+```bash
+git clone https://github.com/jtmyd-top/cc-switch-tool.git
+cd cc-switch-tool
 pipx install .
 ```
 
-For local development without installing:
+Development without installing:
 
 ```bash
-PYTHONPATH=src python -m cc_switch_tool.cli --help
+PYTHONPATH=src python3 -m cc_switch_tool.cli --help
 ```
 
-## Usage
-
-Add profiles:
+The installed commands are:
 
 ```bash
-cc-switch add claude kimi --base-url https://proxy.example.com --api-key sk-xxx
-cc-switch add codex openrouter --base-url https://openrouter.ai/api/v1 --api-key sk-xxx --provider openrouter --model gpt-4.1
-cc-switch add gemini proxy1 --base-url https://proxy.example.com --api-key xxx
+cc-switch
+ccs
 ```
 
-Switch profiles:
+## Quick Start
+
+1. Add one or more profiles:
+
+```bash
+cc-switch add claude kimi \
+  --base-url https://proxy.example.com \
+  --api-key sk-xxx \
+  --model claude-sonnet-4
+
+cc-switch add codex openrouter \
+  --base-url https://openrouter.ai/api/v1 \
+  --api-key sk-xxx \
+  --provider openrouter \
+  --model gpt-4.1
+
+cc-switch add gemini proxy1 \
+  --base-url https://proxy.example.com \
+  --api-key xxx
+```
+
+2. Activate a profile:
 
 ```bash
 cc-switch use claude kimi
@@ -34,15 +106,7 @@ cc-switch use codex openrouter
 cc-switch use gemini proxy1
 ```
 
-Edit an existing profile (any subset of fields; if it's the active one, the tool config is rewritten):
-
-```bash
-cc-switch edit claude kimi --api-key sk-new
-cc-switch edit codex openrouter --base-url https://new.example.com --model gpt-4.1
-cc-switch edit codex openrouter --clear-model
-```
-
-Inspect profiles:
+3. Inspect saved profiles:
 
 ```bash
 cc-switch list
@@ -50,25 +114,106 @@ cc-switch current
 cc-switch show claude kimi
 ```
 
-Remove a profile:
+4. Update a profile:
+
+```bash
+cc-switch edit claude kimi --api-key sk-new
+cc-switch edit claude kimi --model claude-sonnet-4
+cc-switch edit codex openrouter --base-url https://new.example.com --model gpt-4.1
+cc-switch edit codex openrouter --clear-model
+```
+
+If the edited profile is currently active, `cc-switch-tool` rewrites the target
+tool config immediately.
+
+5. Remove a profile:
 
 ```bash
 cc-switch remove claude kimi
 ```
 
-Export environment variables for the active profile:
+6. Export environment variables for the active profile:
 
 ```bash
 eval "$(cc-switch env codex)"
 ```
 
-## Files written
+You can also export a specific saved profile without activating it first:
+
+```bash
+cc-switch env codex openrouter
+```
+
+## Command Overview
+
+Core commands:
+
+- `cc-switch add <tool> <name> --base-url ... --api-key ...`
+- `cc-switch use <tool> <name>`
+- `cc-switch edit <tool> <name> ...`
+- `cc-switch remove <tool> <name>`
+- `cc-switch list [tool]`
+- `cc-switch current [tool]`
+- `cc-switch show <tool> <name>`
+- `cc-switch env <tool> [name]`
+- `cc-switch menu`
+
+Supported tools:
+
+- `claude`
+- `codex`
+- `gemini`
+
+## Interactive TUI
+
+Run without arguments:
+
+```bash
+cc-switch
+```
+
+or:
+
+```bash
+ccs
+```
+
+The TUI supports profile add/edit/remove/switch workflows, WebDAV cloud sync,
+GUI backup pull, and language switching.
+
+## Language
+
+Set language for one command:
+
+```bash
+cc-switch --lang en list
+cc-switch --lang zh list
+```
+
+Or set an environment variable:
+
+```bash
+export CCS_LANG=zh
+```
+
+The TUI also has a language menu. The saved language is stored in:
+
+```text
+~/.cc-switch-tool/settings.json
+```
+
+## Files Written
 
 Profiles are stored in:
 
 ```text
 ~/.cc-switch-tool/profiles.json
 ```
+
+This file stores:
+
+- all saved profiles
+- the active profile name for each tool
 
 `cc-switch use claude <name>` updates:
 
@@ -82,10 +227,13 @@ with:
 {
   "env": {
     "ANTHROPIC_API_KEY": "...",
-    "ANTHROPIC_BASE_URL": "..."
+    "ANTHROPIC_BASE_URL": "...",
+    "ANTHROPIC_MODEL": "..."
   }
 }
 ```
+
+`ANTHROPIC_MODEL` is only written when the selected profile has a model.
 
 `cc-switch use codex <name>` updates:
 
@@ -94,7 +242,8 @@ with:
 ~/.cc-switch-tool/codex.env
 ```
 
-Codex config uses `env_key = "OPENAI_API_KEY"`, so run this if your shell has not already exported the key:
+Codex uses `env_key = "OPENAI_API_KEY"`. If your current shell does not have
+the key exported, run:
 
 ```bash
 eval "$(cc-switch env codex)"
@@ -107,63 +256,158 @@ eval "$(cc-switch env codex)"
 ~/.gemini/.env
 ```
 
-with `GEMINI_API_KEY` and `GOOGLE_GEMINI_BASE_URL` in the `.env` file.
+with `GEMINI_API_KEY` and `GOOGLE_GEMINI_BASE_URL`.
 
-API keys are stored locally and written with `0600` permissions where supported. `list` and `show` redact keys by default.
+Removing an active profile clears it from the local active-profile record.
 
-## Cloud sync (WebDAV)
+## Cloud Sync (WebDAV)
 
-`cc-switch cloud …` (alias: `cc-switch sync …`) backs up `~/.cc-switch-tool/profiles.json` to a WebDAV server you control (Nextcloud, 坚果云 / JianGuoYun, Cloudreve, self-hosted nginx-dav, etc.) and restores it on a new machine.
+`cc-switch cloud ...` backs up `~/.cc-switch-tool/profiles.json` to a WebDAV
+server you control and restores it on another machine.
 
-### Configure (one-time)
+`cc-switch sync ...` is an alias for `cc-switch cloud ...`.
+
+Supported WebDAV providers include Nextcloud, JianGuoYun, Cloudreve, and
+self-hosted WebDAV servers.
+
+### Setup
 
 ```bash
 cc-switch cloud setup
-# or pass everything on the command line:
-cc-switch cloud setup --url https://dav.example.com/dav/ --user alice
 ```
 
-You'll be prompted for the password. The credentials are written to `~/.cc-switch-tool/webdav.enc` encrypted with **Fernet (AES-128-CBC + HMAC-SHA256)** using a key derived from this machine's `/etc/machine-id` (or, if missing, a random salt at `~/.cc-switch-tool/.keyring`, mode `0600`). The file cannot be decrypted on a different machine — that is by design; on a new host run `cc-switch cloud setup` again.
-
-For self-signed staging WebDAV servers, pass `--insecure` to skip TLS verification.
-
-### Backup / restore
+Or pass common fields directly:
 
 ```bash
-cc-switch cloud test           # PROPFIND the remote dir to verify auth
-cc-switch cloud backup         # PUT profiles.json to the remote
-cc-switch cloud restore        # GET remote → write local (timestamped backup of old kept)
-cc-switch cloud status         # show URL, username, last sync time, etag
-cc-switch cloud forget         # delete webdav.enc and sync.json
+cc-switch cloud setup \
+  --url https://dav.example.com/dav/ \
+  --user alice
 ```
 
-`restore` refuses by default if the local store has profiles missing on the remote (so you don't silently drop data); pass `--force` to overwrite anyway. Before overwriting, the old `profiles.json` is copied to `profiles.json.bak.<timestamp>` next to it.
+You will be prompted for the password if `--password` is omitted.
 
-### Encrypted uploads (optional)
+Credentials are stored in:
 
-If your WebDAV provider is shared / not fully trusted, encrypt the upload with an extra passphrase so the server only sees ciphertext:
+```text
+~/.cc-switch-tool/webdav.enc
+```
+
+The file is encrypted with a machine-bound key derived from `/etc/machine-id`,
+or a fallback salt in `~/.cc-switch-tool/.keyring` when `machine-id` is not
+available. A config encrypted on one machine is not meant to be decrypted on
+another machine; run `cc-switch cloud setup` again on each host.
+
+For self-signed WebDAV servers:
 
 ```bash
-cc-switch cloud backup --encrypt           # prompts for a passphrase
-cc-switch cloud restore                    # auto-detects ciphertext, prompts for passphrase
+cc-switch cloud setup --insecure
 ```
 
-The passphrase is **not** stored anywhere — you must remember it, and it must be the same on every machine that restores.
+### Backup and Restore
 
-### Files
+```bash
+cc-switch cloud test
+cc-switch cloud backup
+cc-switch cloud restore
+cc-switch cloud status
+cc-switch cloud forget
+```
 
-| Path | Contents |
-| --- | --- |
-| `~/.cc-switch-tool/profiles.json` | Local profile store (mode `0600`). |
-| `~/.cc-switch-tool/webdav.enc`    | Fernet ciphertext of the WebDAV URL/username/password (mode `0600`). |
-| `~/.cc-switch-tool/sync.json`     | Plain JSON: last backup/restore timestamps, last upload size, etag. |
-| `~/.cc-switch-tool/.keyring`      | Fallback machine-bound salt when `/etc/machine-id` is missing (mode `0600`). |
+`restore` keeps a timestamped backup of the previous local `profiles.json`.
+It refuses to overwrite by default if local profiles are missing on the remote;
+use `--force` when you intentionally want to overwrite.
 
-### Threat model
+### Optional Encrypted Uploads
 
-Machine-bound encryption protects the WebDAV credentials against accidental disclosure (e.g., copying `~/.cc-switch-tool` to a USB stick or a different machine). It does **not** protect against an attacker with read access to the same Linux account — same trust boundary as `~/.ssh/id_rsa`. For stronger guarantees, use `cloud backup --encrypt` with a passphrase you keep in your head.
+Use an extra passphrase when your WebDAV server is shared or not fully trusted:
 
-### TUI
+```bash
+cc-switch cloud backup --encrypt
+cc-switch cloud restore
+```
 
-Running `cc-switch` (or `ccs`) without arguments opens the TUI. The main menu now has a `☁ cloud sync (WebDAV)` entry that exposes setup/backup/restore/test/forget with the same prompts.
+The passphrase is not stored. You must remember it.
 
+### Pull Workflow
+
+Typical GUI-backup import flow:
+
+1. Configure WebDAV credentials with `cc-switch cloud setup`
+2. Set `--pull-dir` to the directory that contains GUI `cc-switch` backups
+3. Run `cc-switch cloud pull`
+
+### Pull from GUI cc-switch Backup
+
+If the GUI `cc-switch` app backs up a `db.sql` file to WebDAV, configure its
+remote directory during setup:
+
+```bash
+cc-switch cloud setup --pull-dir /path/on/webdav/
+```
+
+Then import from it:
+
+```bash
+cc-switch cloud pull
+```
+
+Other options:
+
+```bash
+cc-switch cloud pull --pull-dir /path/on/webdav/
+cc-switch cloud pull https://dav.example.com/path/db.sql
+cc-switch cloud pull --overwrite
+```
+
+## Troubleshooting
+
+### Native cc-switch fails with `libssl.so.3`
+
+If you see:
+
+```text
+cc-switch: error while loading shared libraries: libssl.so.3:
+cannot open shared object file: No such file or directory
+```
+
+install this Python implementation instead:
+
+```bash
+pipx install git+https://github.com/jtmyd-top/cc-switch-tool.git
+```
+
+This avoids changing system OpenSSL packages on older Linux hosts.
+
+### `tomlkit` or `questionary` is missing
+
+Install through `pipx install git+...` or `pipx install .` so project
+dependencies are installed automatically.
+
+If you only want the non-interactive CLI, `questionary` is still part of the
+project dependencies because the TUI ships in the same package.
+
+### Command not found after `pip install --user`
+
+Make sure your user script directory is in `PATH`, usually:
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+## Security Notes
+
+API keys are stored locally in `~/.cc-switch-tool/profiles.json` and written to
+the target tool config files. The files are written with `0600` permissions
+where supported.
+
+By default, `list` and `show` redact API keys in terminal output.
+
+Machine-bound WebDAV credential encryption protects against accidental copying
+of `~/.cc-switch-tool/webdav.enc` to another machine. It does not protect
+against an attacker who can already read files as the same Linux user.
+
+For stronger protection of cloud backups, use:
+
+```bash
+cc-switch cloud backup --encrypt
+```

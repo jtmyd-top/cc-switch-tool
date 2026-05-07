@@ -187,8 +187,12 @@ def pull_from_sql(sql: str, store: ProfileStore, *, overwrite: bool = False) -> 
 
         is_current = row.get("is_current")
         if is_current and is_current not in (0, "0", False):
-            store.data["active"][app_type] = name
-            active_set.append(label)
+            # Only set active if the local tool has no active profile,
+            # or its current active profile is not in the profile list.
+            current_active = store.data["active"].get(app_type)
+            if not current_active or current_active not in store.data["profiles"][app_type]:
+                store.data["active"][app_type] = name
+                active_set.append(label)
 
     store.save()
     return PullResult(added=added, updated=updated, skipped=skipped, active_set=active_set)

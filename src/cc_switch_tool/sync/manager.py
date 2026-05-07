@@ -188,6 +188,24 @@ class SyncManager:
                 _refuse_if_local_has_unique_profiles(local_path, data)
 
         local_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Preserve local active profiles unless they no longer exist in the
+        # restored data.
+        local_active = self.store.data.get("active", {})
+        remote_profiles = data.get("profiles", {})
+        remote_active = data.get("active", {})
+        merged_active = {}
+        for tool, name in local_active.items():
+            tool_profiles = remote_profiles.get(tool, {})
+            if name in tool_profiles:
+                merged_active[tool] = name
+            elif tool in remote_active:
+                merged_active[tool] = remote_active[tool]
+        for tool, name in remote_active.items():
+            if tool not in merged_active:
+                merged_active[tool] = name
+        data["active"] = merged_active
+
         atomic_write_text(
             local_path,
             json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
