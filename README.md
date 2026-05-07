@@ -89,6 +89,12 @@ Upgrade an existing installation:
 cc-switch upgrade
 ```
 
+Check the installed version:
+
+```bash
+cc-switch --version
+```
+
 You can also open `cc-switch` with no arguments and choose `upgrade program`
 from the main menu.
 

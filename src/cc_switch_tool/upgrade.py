@@ -50,11 +50,51 @@ def run_upgrade(method: str = "auto", project_url: str = PROJECT_URL) -> int:
 
 
 def execute_plan(plan: UpgradePlan) -> int:
+    before = installed_version()
+    if before:
+        print(t("Current version: {version}", version=before))
     print(t("Upgrade method: {method}", method=plan.method))
     if plan.note:
         print(plan.note)
     print(t("Running: {command}", command=" ".join(plan.command)))
-    return subprocess.call(plan.command)
+    rc = subprocess.call(plan.command)
+    if rc != 0:
+        return rc
+
+    after = installed_version()
+    if not after:
+        print(t("Upgrade completed, but the installed version could not be verified."))
+    elif before and before != after:
+        print(t("Upgrade verified: {before} -> {after}", before=before, after=after))
+    else:
+        print(
+            t(
+                "Upgrade completed, but the version is still {version}. "
+                "You may already be on the latest release, or the package version was not bumped.",
+                version=after,
+            )
+        )
+    return 0
+
+
+def installed_version() -> str:
+    code = (
+        "import importlib.metadata as m; "
+        f"print(m.version({PACKAGE_NAME!r}))"
+    )
+    try:
+        proc = subprocess.run(
+            [sys.executable, "-c", code],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+    except OSError:
+        return ""
+    if proc.returncode != 0:
+        return ""
+    return proc.stdout.strip()
 
 
 def _current_python_pip_plan(project_url: str) -> UpgradePlan:

@@ -152,9 +152,16 @@ _ZH: dict[str, str] = {
     "Unsupported upgrade method: {method}": "不支持的升级方式：{method}",
     "pipx was not found on PATH.": "PATH 中找不到 pipx。",
     "Upgrade method: {method}": "升级方式：{method}",
+    "Current version: {version}": "当前版本：{version}",
     "Upgrading the current Python environment.": "将升级当前 Python 环境中的安装。",
     "Upgrading the current user installation.": "将升级当前用户安装。",
     "Running: {command}": "执行：{command}",
+    "Upgrade completed, but the installed version could not be verified.":
+        "升级已完成，但无法校验已安装版本。",
+    "Upgrade verified: {before} -> {after}": "升级已校验：{before} -> {after}",
+    "Upgrade completed, but the version is still {version}. "
+    "You may already be on the latest release, or the package version was not bumped.":
+        "升级已完成，但版本仍然是 {version}。可能你已经是最新版，或这次发布没有递增版本号。",
     "Upgrade failed with exit code {code}": "升级失败，退出码：{code}",
 
     # cloud cli outputs

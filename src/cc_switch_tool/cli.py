@@ -8,6 +8,7 @@ from typing import Callable
 
 from .i18n import t, set_lang
 from .store import ProfileStore, StoreError, TOOLS
+from .upgrade import installed_version
 from .writers import claude, codex, gemini
 from .writers.common import redact, shell_export
 
@@ -32,6 +33,11 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("zh", "en"),
         default=None,
         help="language / 语言 (default: zh, or set CCS_LANG env)",
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {installed_version() or 'unknown'}",
     )
     subparsers = parser.add_subparsers(dest="command")
 

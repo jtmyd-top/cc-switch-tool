@@ -88,6 +88,12 @@ ccs
 cc-switch upgrade
 ```
 
+查看当前已安装版本：
+
+```bash
+cc-switch --version
+```
+
 也可以直接运行不带参数的 `cc-switch`，然后在主菜单里选择“升级程序”。
 
 ## 快速开始
