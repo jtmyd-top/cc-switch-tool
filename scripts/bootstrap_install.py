@@ -163,39 +163,58 @@ def install_with_pipx(py, project_url, assume_yes):
         print("pipx needs a Python executable path; falling back to pip --user.")
         return run(py + ["-m", "pip", "install", "--user", project_url])
 
-    # Prefer using pipx via the compatible Python (avoids old system pipx)
+    # Old pipx (< 1.0) cannot install from git URLs. Check version first.
+    pipx = shutil.which("pipx")
+    if pipx and not _pipx_supports_urls(pipx):
+        print("System pipx is too old for git URLs. Installing with pip --user.")
+        return run(py + ["-m", "pip", "install", "--user", project_url])
+
+    # Try pipx via the compatible Python module (avoids old system pipx)
     pipx_via_module = _pipx_module_available(py)
     if pipx_via_module:
         rc = run(py + ["-m", "pipx", "install", project_url])
         if rc == 0:
             return 0
-        print("pipx module install failed; trying system pipx...")
+        print("pipx module install failed; falling back to pip --user.")
+        return run(py + ["-m", "pip", "install", "--user", project_url])
 
-    pipx = shutil.which("pipx")
-    if not pipx and not pipx_via_module:
+    if not pipx:
         print("pipx was not found.")
         if not confirm("Install pipx with '{0} -m pip install --user pipx'?".format(format_cmd(py)), assume_yes):
             return 1
         rc = run(py + ["-m", "pip", "install", "--user", "pipx"])
         if rc != 0:
-            return rc
+            print("Failed to install pipx. Falling back to pip --user.")
+            return run(py + ["-m", "pip", "install", "--user", project_url])
         pipx = shutil.which("pipx") or os.path.expanduser("~/.local/bin/pipx")
         if not os.path.exists(pipx):
             print("pipx installed, but it is not on PATH. Falling back to pip --user.")
             return run(py + ["-m", "pip", "install", "--user", project_url])
 
-    if pipx:
-        rc = run([pipx, "install", "--python", py[0], project_url])
-        if rc == 0:
-            return 0
-        print("System pipx failed (possibly too old for git URLs). Falling back to pip --user.")
-
-    return run(py + ["-m", "pip", "install", "--user", project_url])
+    rc = run([pipx, "install", "--python", py[0], project_url])
+    if rc != 0:
+        print("pipx install failed. Falling back to pip --user.")
+        return run(py + ["-m", "pip", "install", "--user", project_url])
+    return 0
 
 
 def _pipx_module_available(py):
     code = "import importlib; importlib.import_module('pipx')"
     return run_quiet(py + ["-c", code]) == 0
+
+
+def _pipx_supports_urls(pipx_path):
+    """Check if pipx version >= 1.0 (supports git URLs)."""
+    try:
+        proc = subprocess.Popen(
+            [pipx_path, "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        out, _ = proc.communicate()
+        version_str = out.decode("utf-8", "replace").strip()
+        major = int(version_str.split(".")[0])
+        return major >= 1
+    except (OSError, ValueError, IndexError):
+        return False
 
 
 def install_with_venv(py, project_url):
