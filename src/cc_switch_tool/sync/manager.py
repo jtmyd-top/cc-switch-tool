@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from ..i18n import t
 from ..store import ProfileStore, StoreError
 from ..writers.common import atomic_write_text, expand, redact
 from . import config as cfg
@@ -91,7 +92,7 @@ class SyncManager:
             client.ensure_directory(config.remote_dir)
             response = client.propfind(config.remote_dir, depth="0")
         except WebDAVError as exc:
-            raise SyncError(f"WebDAV test failed: {exc}") from exc
+            raise SyncError(t("WebDAV test failed: {error}", error=exc)) from exc
         return SyncResult(
             action="test",
             remote_path=config.remote_dir,
@@ -122,7 +123,7 @@ class SyncManager:
                 content_type=("application/octet-stream" if encrypted else "application/json"),
             )
         except WebDAVError as exc:
-            raise SyncError(f"WebDAV backup failed: {exc}") from exc
+            raise SyncError(t("WebDAV backup failed: {error}", error=exc)) from exc
 
         cfg.update_state(
             last_backup=cfg.now_iso(),
@@ -148,14 +149,14 @@ class SyncManager:
         try:
             response = client.get(config.remote_path)
         except WebDAVError as exc:
-            raise SyncError(f"WebDAV restore failed: {exc}") from exc
+            raise SyncError(t("WebDAV restore failed: {error}", error=exc)) from exc
 
         body = response.body
         was_encrypted = looks_like_fernet_token(body)
         if was_encrypted:
             if passphrase is None:
                 raise SyncError(
-                    "Remote backup is encrypted; pass --passphrase (or enter it in the TUI)."
+                    t("Remote backup is encrypted; pass --passphrase (or enter it in the TUI).")
                 )
             try:
                 body = decrypt_bytes(body, passphrase=passphrase)
@@ -169,11 +170,10 @@ class SyncManager:
             data = json.loads(body.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise SyncError(
-                "Remote payload is not valid JSON. "
-                "If you encrypted the backup, pass --passphrase."
+                t("Remote payload is not valid JSON. If you encrypted the backup, pass --passphrase.")
             ) from exc
         if not isinstance(data, dict):
-            raise SyncError("Remote payload is JSON but not an object; refusing to restore.")
+            raise SyncError(t("Remote payload is JSON but not an object; refusing to restore."))
 
         local_path = expand(self.store.path)
         backup_local: str | None = None
@@ -262,7 +262,8 @@ def _refuse_if_local_has_unique_profiles(local_path: Path, remote_data: dict[str
         joined = ", ".join(sorted(missing)[:8])
         more = "" if len(missing) <= 8 else f" (+{len(missing) - 8} more)"
         raise SyncError(
-            "Local profiles not present in the remote backup: "
-            f"{joined}{more}. Re-run with --force to overwrite anyway, "
-            "or run 'cc-switch sync backup' first to push them up."
+            t("Local profiles not present in the remote backup: {missing}{more}. "
+              "Re-run with --force to overwrite anyway, "
+              "or run 'cc-switch sync backup' first to push them up.",
+              missing=joined, more=more)
         )

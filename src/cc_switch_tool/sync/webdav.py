@@ -25,6 +25,8 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Mapping
 
+from ..i18n import t
+
 
 _DEFAULT_TIMEOUT = 15.0
 _BODY_SNIPPET_LIMIT = 400
@@ -239,15 +241,15 @@ class WebDAVClient:
 
 def _http_message(status: int, reason: str | None) -> str:
     if status == 401:
-        return "401 Unauthorized — check WebDAV username/password"
+        return t("401 Unauthorized — check WebDAV username/password")
     if status == 403:
-        return "403 Forbidden — the account is authenticated but cannot access this path"
+        return t("403 Forbidden — the account is authenticated but cannot access this path")
     if status == 404:
-        return "404 Not Found — the remote file or directory doesn't exist"
+        return t("404 Not Found — the remote file or directory doesn't exist")
     if status == 405:
-        return "405 Method Not Allowed — endpoint may not be a WebDAV server"
+        return t("405 Method Not Allowed — endpoint may not be a WebDAV server")
     if status == 507:
-        return "507 Insufficient Storage — the WebDAV server reported it is full"
+        return t("507 Insufficient Storage — the WebDAV server reported it is full")
     return f"HTTP {status} {reason or ''}".strip()
 
 

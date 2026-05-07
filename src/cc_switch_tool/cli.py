@@ -6,7 +6,7 @@ import json
 import sys
 from typing import Callable
 
-from .i18n import t
+from .i18n import t, set_lang
 from .store import ProfileStore, StoreError, TOOLS
 from .writers import claude, codex, gemini
 from .writers.common import redact, shell_export
@@ -26,6 +26,12 @@ def build_parser() -> argparse.ArgumentParser:
             "Switch relay endpoint profiles for Claude Code, Codex CLI, and Gemini CLI. "
             "Run without arguments for an interactive menu."
         ),
+    )
+    parser.add_argument(
+        "--lang",
+        choices=("zh", "en"),
+        default=None,
+        help="language / 语言 (default: zh, or set CCS_LANG env)",
     )
     subparsers = parser.add_subparsers(dest="command")
 
@@ -587,6 +593,8 @@ def cmd_cloud_pull(args: argparse.Namespace, store: ProfileStore) -> None:
 def run(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if args.lang:
+        set_lang(args.lang)
     if args.command is None:
         # No subcommand: drop into the interactive TUI.
         from .tui import TUIUnavailable, run_tui

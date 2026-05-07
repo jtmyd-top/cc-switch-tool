@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..writers.common import atomic_write_text, expand
+from ..i18n import t
 
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -56,8 +57,8 @@ def _require_cryptography():
         from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC  # noqa: WPS433
     except ImportError as exc:  # pragma: no cover - import guard
         raise CryptoUnavailable(
-            "The 'cryptography' package is required for cloud sync. "
-            "Reinstall with: pipx install --force cc-switch-tool"
+            t("The 'cryptography' package is required for cloud sync. "
+              "Reinstall with: pipx install --force cc-switch-tool")
         ) from exc
     return Fernet, InvalidToken, hashes, PBKDF2HMAC
 
@@ -142,11 +143,11 @@ def decrypt_bytes(token: bytes, passphrase: str | None = None) -> bytes:
     except InvalidToken as exc:
         if passphrase is None:
             raise DecryptError(
-                "Cannot decrypt with the current machine key. "
-                "If you moved the keyring or changed hosts, run "
-                "'cc-switch sync setup' again."
+                t("Cannot decrypt with the current machine key. "
+                  "If you moved the keyring or changed hosts, run "
+                  "'cc-switch sync setup' again.")
             ) from exc
-        raise DecryptError("Wrong passphrase or corrupted ciphertext.") from exc
+        raise DecryptError(t("Wrong passphrase or corrupted ciphertext.")) from exc
 
 
 def encrypt_text(plaintext: str, passphrase: str | None = None) -> str:

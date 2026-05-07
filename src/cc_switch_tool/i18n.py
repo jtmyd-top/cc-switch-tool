@@ -7,7 +7,8 @@ prints English rather than crashing.
 Language is chosen, in order:
 
 1. ``CCS_LANG`` env var (``zh`` / ``en``).
-2. Default: ``zh`` (the tool's primary audience).
+2. ``~/.cc-switch-tool/settings.json`` → ``lang`` field.
+3. Default: ``zh`` (the tool's primary audience).
 
 Use :func:`t` for static strings and :func:`tf` (or pass ``**kwargs``) for
 strings with ``str.format``-style placeholders.
@@ -15,11 +16,25 @@ strings with ``str.format``-style placeholders.
 
 from __future__ import annotations
 
+import json
 import os
+from pathlib import Path
 from typing import Any
 
 
 _VALID_LANGS = ("zh", "en")
+_SETTINGS_PATH = Path("~/.cc-switch-tool/settings.json")
+
+
+def _read_saved_lang() -> str | None:
+    try:
+        data = json.loads(_SETTINGS_PATH.expanduser().read_text(encoding="utf-8"))
+        lang = str(data.get("lang", "")).strip().lower()
+        if lang in _VALID_LANGS:
+            return lang
+    except (OSError, json.JSONDecodeError, TypeError):
+        pass
+    return None
 
 
 def _detect_lang() -> str:
@@ -30,7 +45,23 @@ def _detect_lang() -> str:
         return "zh"
     if raw.startswith("en"):
         return "en"
+    saved = _read_saved_lang()
+    if saved:
+        return saved
     return "zh"
+
+
+def save_lang(lang: str) -> None:
+    """Persist language choice to settings.json."""
+    path = _SETTINGS_PATH.expanduser()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data: dict[str, Any] = {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        pass
+    data["lang"] = lang
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 LANG = _detect_lang()
@@ -338,6 +369,21 @@ _ZH: dict[str, str] = {
     "Done. {count} profile(s) imported. Run cc-switch list to see them.":
         "完成。已导入 {count} 个配置。运行 'cc-switch list' 查看。",
     "No new profiles imported.": "没有新配置被导入。",
+    # ----------- cloud pull TUI
+    "↙ pull from GUI backup": "↙ 从 GUI 备份导入",
+    "Pull directory not configured. Edit settings to set it.":
+        "未配置 pull 目录。请编辑设置填写。",
+    "Overwrite existing profiles with the same name?":
+        "覆盖同名的已有配置？",
+    "No new profiles to import.": "没有新配置可导入。",
+    "Pull path reachable: {path} (HTTP {status})":
+        "Pull 路径可达：{path}（HTTP {status}）",
+    "Pull path failed: {path} — {error}":
+        "Pull 路径失败：{path} — {error}",
+    # ----------- language menu
+    "⚙ language / 语言: {lang}": "⚙ 语言 / language: {lang}",
+    "Select language / 选择语言": "选择语言 / Select language",
+    "Language set to: {lang}": "语言已设为：{lang}",
 }
 
 

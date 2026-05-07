@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from ..i18n import t
 from ..writers.common import atomic_write_text, expand, read_json, write_json
 from .crypto import (
     DecryptError,
@@ -60,7 +61,7 @@ class WebDAVConfig:
                 pull_dir=str(data.get("pull_dir") or "").strip(),
             )
         except KeyError as exc:
-            raise ConfigError(f"missing required field: {exc.args[0]}") from exc
+            raise ConfigError(t("missing required field: {field}", field=exc.args[0])) from exc
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -108,11 +109,11 @@ def load_config() -> WebDAVConfig:
     resolved = expand(CONFIG_PATH)
     if not resolved.exists():
         raise ConfigError(
-            "WebDAV is not configured yet. Run 'cc-switch sync setup' first."
+            t("WebDAV is not configured yet. Run 'cc-switch sync setup' first.")
         )
     token = resolved.read_text(encoding="utf-8").strip()
     if not token:
-        raise ConfigError("webdav.enc is empty; re-run 'cc-switch sync setup'.")
+        raise ConfigError(t("webdav.enc is empty; re-run 'cc-switch sync setup'."))
     try:
         plaintext = decrypt_text(token)
     except DecryptError:
@@ -120,7 +121,7 @@ def load_config() -> WebDAVConfig:
     try:
         data = json.loads(plaintext)
     except json.JSONDecodeError as exc:
-        raise ConfigError("decrypted webdav.enc is not valid JSON") from exc
+        raise ConfigError(t("decrypted webdav.enc is not valid JSON")) from exc
     return WebDAVConfig.from_dict(data)
 
 

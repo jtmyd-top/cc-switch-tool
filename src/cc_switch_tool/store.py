@@ -134,7 +134,7 @@ class ProfileStore:
         try:
             profile = self.data["profiles"][tool][name]
         except KeyError as exc:
-            raise StoreError(f"Profile not found: {tool}/{name}") from exc
+            raise StoreError(t("Profile not found: {tool}/{name}", tool=tool, name=name)) from exc
         return deepcopy(profile)
 
     def get_active_name(self, tool: str) -> str | None:
