@@ -6,6 +6,7 @@ import json
 import sys
 from typing import Callable
 
+from .i18n import t
 from .store import ProfileStore, StoreError, TOOLS
 from .writers import claude, codex, gemini
 from .writers.common import redact, shell_export
@@ -21,61 +22,63 @@ WRITERS = {
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="cc-switch",
-        description="Switch relay endpoint profiles for Claude Code, Codex CLI, and Gemini CLI. "
-        "Run without arguments for an interactive menu.",
+        description=t(
+            "Switch relay endpoint profiles for Claude Code, Codex CLI, and Gemini CLI. "
+            "Run without arguments for an interactive menu."
+        ),
     )
     subparsers = parser.add_subparsers(dest="command")
 
-    menu = subparsers.add_parser("menu", help="open the interactive TUI (default with no args)")
+    menu = subparsers.add_parser("menu", help=t("open the interactive TUI (default with no args)"))
     menu.set_defaults(func=cmd_menu)
 
-    add = subparsers.add_parser("add", help="add or update a profile")
+    add = subparsers.add_parser("add", help=t("add or update a profile"))
     add.add_argument("tool", choices=TOOLS)
     add.add_argument("name")
     add.add_argument("--base-url", required=True)
     add.add_argument("--api-key", required=True)
-    add.add_argument("--provider", help="Codex provider id; defaults to profile name")
-    add.add_argument("--model", help="optional model name for Codex")
+    add.add_argument("--provider", help=t("Codex provider id; defaults to profile name"))
+    add.add_argument("--model", help=t("optional model name for Codex"))
     add.set_defaults(func=cmd_add)
 
-    use = subparsers.add_parser("use", help="activate a profile and write tool config")
+    use = subparsers.add_parser("use", help=t("activate a profile and write tool config"))
     use.add_argument("tool", choices=TOOLS)
     use.add_argument("name")
     use.set_defaults(func=cmd_use)
 
     edit = subparsers.add_parser(
         "edit",
-        help="modify an existing profile (any subset of fields)",
+        help=t("modify an existing profile (any subset of fields)"),
     )
     edit.add_argument("tool", choices=TOOLS)
     edit.add_argument("name")
     edit.add_argument("--base-url")
     edit.add_argument("--api-key")
-    edit.add_argument("--provider", help="Codex provider id (use --clear-provider to drop)")
-    edit.add_argument("--model", help="Codex model name (use --clear-model to drop)")
+    edit.add_argument("--provider", help=t("Codex provider id (use --clear-provider to drop)"))
+    edit.add_argument("--model", help=t("Codex model name (use --clear-model to drop)"))
     edit.add_argument("--clear-provider", action="store_true")
     edit.add_argument("--clear-model", action="store_true")
     edit.set_defaults(func=cmd_edit)
 
-    list_cmd = subparsers.add_parser("list", help="list profiles")
+    list_cmd = subparsers.add_parser("list", help=t("list profiles"))
     list_cmd.add_argument("tool", nargs="?", choices=TOOLS)
     list_cmd.set_defaults(func=cmd_list)
 
-    current = subparsers.add_parser("current", help="show active profile")
+    current = subparsers.add_parser("current", help=t("show active profile"))
     current.add_argument("tool", nargs="?", choices=TOOLS)
     current.set_defaults(func=cmd_current)
 
-    remove = subparsers.add_parser("remove", help="remove a profile")
+    remove = subparsers.add_parser("remove", help=t("remove a profile"))
     remove.add_argument("tool", choices=TOOLS)
     remove.add_argument("name")
     remove.set_defaults(func=cmd_remove)
 
-    show = subparsers.add_parser("show", help="show a profile with the API key redacted")
+    show = subparsers.add_parser("show", help=t("show a profile with the API key redacted"))
     show.add_argument("tool", choices=TOOLS)
     show.add_argument("name")
     show.set_defaults(func=cmd_show)
 
-    env = subparsers.add_parser("env", help="print shell exports for a profile")
+    env = subparsers.add_parser("env", help=t("print shell exports for a profile"))
     env.add_argument("tool", choices=TOOLS)
     env.add_argument("name", nargs="?")
     env.set_defaults(func=cmd_env)
@@ -83,99 +86,99 @@ def build_parser() -> argparse.ArgumentParser:
     cloud = subparsers.add_parser(
         "cloud",
         aliases=["sync"],
-        help="WebDAV cloud backup / restore (encrypted credentials at rest)",
+        help=t("WebDAV cloud backup / restore (encrypted credentials at rest)"),
     )
     cloud.set_defaults(func=cmd_cloud_help, _cloud_parser=cloud)
     cloud_sub = cloud.add_subparsers(dest="cloud_command")
 
     cloud_setup = cloud_sub.add_parser(
         "setup",
-        help="configure WebDAV endpoint (interactive prompts for any missing fields)",
+        help=t("configure WebDAV endpoint (interactive prompts for any missing fields)"),
     )
-    cloud_setup.add_argument("--url", help="WebDAV base URL, e.g. https://dav.example.com/dav/")
-    cloud_setup.add_argument("--user", help="WebDAV username")
-    cloud_setup.add_argument("--password", help="WebDAV password (omit to be prompted)")
+    cloud_setup.add_argument("--url", help=t("WebDAV base URL, e.g. https://dav.example.com/dav/"))
+    cloud_setup.add_argument("--user", help=t("WebDAV username"))
+    cloud_setup.add_argument("--password", help=t("WebDAV password (omit to be prompted)"))
     cloud_setup.add_argument(
         "--remote-dir",
-        help="remote directory for backups (default /cc-switch/)",
+        help=t("remote directory for backups (default /cc-switch/)"),
     )
     cloud_setup.add_argument(
         "--remote-filename",
-        help="remote filename (default profiles.json)",
+        help=t("remote filename (default profiles.json)"),
     )
     cloud_setup.add_argument(
         "--insecure",
         action="store_true",
-        help="skip TLS certificate verification (use only for self-signed staging servers)",
+        help=t("skip TLS certificate verification (use only for self-signed staging servers)"),
     )
     cloud_setup.add_argument(
         "--pull-dir",
-        help="remote directory where the GUI cc-switch app backs up (for 'cloud pull')",
+        help=t("remote directory where the GUI cc-switch app backs up (for 'cloud pull')"),
     )
     cloud_setup.set_defaults(func=cmd_cloud_setup)
 
-    cloud_test = cloud_sub.add_parser("test", help="probe the WebDAV endpoint with current credentials")
+    cloud_test = cloud_sub.add_parser("test", help=t("probe the WebDAV endpoint with current credentials"))
     cloud_test.set_defaults(func=cmd_cloud_test)
 
-    cloud_backup = cloud_sub.add_parser("backup", help="upload local profiles.json to WebDAV")
+    cloud_backup = cloud_sub.add_parser("backup", help=t("upload local profiles.json to WebDAV"))
     cloud_backup.add_argument(
         "--encrypt",
         action="store_true",
-        help="encrypt the upload with a passphrase (prompted) so the server only sees ciphertext",
+        help=t("encrypt the upload with a passphrase (prompted) so the server only sees ciphertext"),
     )
     cloud_backup.add_argument(
         "--passphrase",
-        help="passphrase for --encrypt (omit to be prompted)",
+        help=t("passphrase for --encrypt (omit to be prompted)"),
     )
     cloud_backup.set_defaults(func=cmd_cloud_backup)
 
     cloud_restore = cloud_sub.add_parser(
         "restore",
-        help="download remote profiles.json and replace local",
+        help=t("download remote profiles.json and replace local"),
     )
     cloud_restore.add_argument(
         "--passphrase",
-        help="passphrase for --encrypt'd backups (omit to be prompted if needed)",
+        help=t("passphrase for --encrypt'd backups (omit to be prompted if needed)"),
     )
     cloud_restore.add_argument(
         "--force",
         action="store_true",
-        help="overwrite local even if it has profiles missing on the remote",
+        help=t("overwrite local even if it has profiles missing on the remote"),
     )
     cloud_restore.set_defaults(func=cmd_cloud_restore)
 
-    cloud_status = cloud_sub.add_parser("status", help="show cloud config and last sync info")
+    cloud_status = cloud_sub.add_parser("status", help=t("show cloud config and last sync info"))
     cloud_status.set_defaults(func=cmd_cloud_status)
 
     cloud_forget = cloud_sub.add_parser(
         "forget",
-        help="remove local WebDAV credentials and sync state",
+        help=t("remove local WebDAV credentials and sync state"),
     )
     cloud_forget.add_argument(
         "--yes",
         action="store_true",
-        help="skip the confirmation prompt",
+        help=t("skip the confirmation prompt"),
     )
     cloud_forget.set_defaults(func=cmd_cloud_forget)
 
     cloud_pull = cloud_sub.add_parser(
         "pull",
-        help="import profiles from a cc-switch desktop app backup (db.sql format)",
+        help=t("import profiles from a cc-switch desktop app backup (db.sql format)"),
     )
     cloud_pull.add_argument(
         "url",
         nargs="?",
         default=None,
-        help="URL to db.sql (optional; if omitted, uses configured WebDAV + pull_dir)",
+        help=t("URL to db.sql (optional; if omitted, uses configured WebDAV + pull_dir)"),
     )
     cloud_pull.add_argument(
         "--overwrite",
         action="store_true",
-        help="overwrite existing local profiles with the same name",
+        help=t("overwrite existing local profiles with the same name"),
     )
     cloud_pull.add_argument(
         "--pull-dir",
-        help="override the pull directory for this invocation",
+        help=t("override the pull directory for this invocation"),
     )
     cloud_pull.set_defaults(func=cmd_cloud_pull)
 
@@ -191,7 +194,7 @@ def cmd_add(args: argparse.Namespace, store: ProfileStore) -> None:
         provider=args.provider,
         model=args.model,
     )
-    print(f"Added {args.tool}/{args.name}")
+    print(t("Added {tool}/{name}", tool=args.tool, name=args.name))
 
 
 def cmd_use(args: argparse.Namespace, store: ProfileStore) -> None:
@@ -201,12 +204,12 @@ def cmd_use(args: argparse.Namespace, store: ProfileStore) -> None:
         changed = writer.apply_profile(profile, args.name)
     else:
         changed = writer.apply_profile(profile)
-    print(f"Using {args.tool}/{args.name}")
+    print(t("Using {tool}/{name}", tool=args.tool, name=args.name))
     for path in changed:
-        print(f"Updated {path}")
+        print(t("Updated {path}", path=path))
     if args.tool == "codex":
-        print("Run this in your shell if Codex does not already have OPENAI_API_KEY:")
-        print(f"eval \"$(cc-switch env codex)\"")
+        print(t("Run this in your shell if Codex does not already have OPENAI_API_KEY:"))
+        print(f'eval "$(cc-switch env codex)"')
 
 
 def cmd_edit(args: argparse.Namespace, store: ProfileStore) -> None:
@@ -221,8 +224,7 @@ def cmd_edit(args: argparse.Namespace, store: ProfileStore) -> None:
         ]
     ):
         raise StoreError(
-            "edit needs at least one of --base-url, --api-key, --provider, --model, "
-            "--clear-provider, --clear-model"
+            t("edit needs at least one of --base-url, --api-key, --provider, --model, --clear-provider, --clear-model")
         )
     profile = store.update_profile(
         args.tool,
@@ -234,25 +236,25 @@ def cmd_edit(args: argparse.Namespace, store: ProfileStore) -> None:
         clear_provider=args.clear_provider,
         clear_model=args.clear_model,
     )
-    print(f"Updated {args.tool}/{args.name}")
+    print(t("Updated {tool}/{name}", tool=args.tool, name=args.name))
     if store.get_active_name(args.tool) == args.name:
         writer = WRITERS[args.tool]
         if args.tool == "codex":
             changed = writer.apply_profile(profile, args.name)
         else:
             changed = writer.apply_profile(profile)
-        print(f"Re-applied active profile {args.tool}/{args.name}")
+        print(t("Re-applied active profile {tool}/{name}", tool=args.tool, name=args.name))
         for path in changed:
-            print(f"  updated {path}")
+            print(t("  updated {path}", path=path))
 
 
 def cmd_list(args: argparse.Namespace, store: ProfileStore) -> None:
     profiles_by_tool = store.list_profiles(args.tool)
     for tool, profiles in profiles_by_tool.items():
         active = store.get_active_name(tool)
-        print(f"{tool}:")
+        print(t("{tool}:", tool=tool))
         if not profiles:
-            print("  (none)")
+            print(t("  (none)"))
             continue
         for name, profile in sorted(profiles.items()):
             marker = "*" if name == active else " "
@@ -266,7 +268,7 @@ def cmd_current(args: argparse.Namespace, store: ProfileStore) -> None:
     for tool in tools:
         active = store.get_active_name(tool)
         if not active:
-            print(f"{tool}: (none)")
+            print(t("{tool}: (none)", tool=tool))
             continue
         profile = store.get_profile(tool, active)
         print(f"{tool}: {active} base_url={profile['base_url']} key={redact(profile['api_key'])}")
@@ -274,7 +276,7 @@ def cmd_current(args: argparse.Namespace, store: ProfileStore) -> None:
 
 def cmd_remove(args: argparse.Namespace, store: ProfileStore) -> None:
     store.remove_profile(args.tool, args.name)
-    print(f"Removed {args.tool}/{args.name}")
+    print(t("Removed {tool}/{name}", tool=args.tool, name=args.name))
 
 
 def cmd_show(args: argparse.Namespace, store: ProfileStore) -> None:
@@ -345,18 +347,19 @@ def _prompt_secret(message: str) -> str:
 
 def _print_status(status: dict[str, object]) -> None:
     if not status.get("configured"):
-        print("cloud: not configured. Run 'cc-switch cloud setup'.")
+        print(t("cloud: not configured. Run 'cc-switch cloud setup'."))
         return
     if status.get("error"):
-        print(f"cloud: error — {status['error']}")
+        print(t("cloud: error — {error}", error=status['error']))
         return
-    print(f"cloud: configured")
+    print(t("cloud: configured"))
     for key in (
         "base_url",
         "username",
         "password",
         "remote_path",
         "verify_tls",
+        "pull_dir",
         "last_backup",
         "last_backup_size",
         "last_backup_encrypted",
@@ -390,37 +393,37 @@ def cmd_cloud_setup(args: argparse.Namespace, store: ProfileStore) -> None:
             existing = None
 
     base_url = args.url or _prompt_text(
-        "WebDAV base URL",
+        t("WebDAV base URL"),
         default=existing.base_url if existing else None,
     )
     username = args.user or _prompt_text(
-        "Username",
+        t("Username"),
         default=existing.username if existing else None,
     )
     password = args.password
     if password is None:
         if existing and existing.password:
             keep = _prompt_text(
-                "Reuse stored password? [Y/n]",
+                t("Reuse stored password? [Y/n]"),
                 default="y",
                 required=False,
             ).lower()
-            password = existing.password if keep in ("", "y", "yes") else _prompt_secret("Password")
+            password = existing.password if keep in ("", "y", "yes") else _prompt_secret(t("Password"))
         else:
-            password = _prompt_secret("Password")
+            password = _prompt_secret(t("Password"))
     remote_dir = args.remote_dir or _prompt_text(
-        "Remote directory",
+        t("Remote directory"),
         default=(existing.remote_dir if existing else "/cc-switch/"),
         required=False,
     ) or "/cc-switch/"
     remote_filename = args.remote_filename or _prompt_text(
-        "Remote filename",
+        t("Remote filename"),
         default=(existing.remote_filename if existing else "profiles.json"),
         required=False,
     ) or "profiles.json"
     verify_tls = (not args.insecure) if args.insecure else (existing.verify_tls if existing else True)
     pull_dir = args.pull_dir or _prompt_text(
-        "GUI cc-switch pull directory (blank = skip)",
+        t("GUI cc-switch pull directory (blank = skip)"),
         default=(existing.pull_dir if existing else ""),
         required=False,
     )
@@ -435,17 +438,18 @@ def cmd_cloud_setup(args: argparse.Namespace, store: ProfileStore) -> None:
         pull_dir=pull_dir,
     )
     manager.save_config(config)
-    print("Saved WebDAV config (encrypted at rest):")
+    print(t("Saved WebDAV config (encrypted at rest):"))
     for key, value in config.redacted_dict().items():
         print(f"  {key}: {value}")
-    print("Run 'cc-switch cloud test' to verify connectivity.")
+    print(t("Run 'cc-switch cloud test' to verify connectivity."))
 
 
 def cmd_cloud_test(args: argparse.Namespace, store: ProfileStore) -> None:
     from .sync.manager import SyncManager
 
     result = SyncManager(store).test()
-    print(f"WebDAV reachable. Probed {result.remote_path} (HTTP {result.extra.get('status') if result.extra else '?'}).")
+    print(t("WebDAV reachable. Probed {path} (HTTP {status}).",
+            path=result.remote_path, status=result.extra.get('status') if result.extra else '?'))
 
 
 def cmd_cloud_backup(args: argparse.Namespace, store: ProfileStore) -> None:
@@ -453,14 +457,14 @@ def cmd_cloud_backup(args: argparse.Namespace, store: ProfileStore) -> None:
 
     passphrase: str | None = None
     if args.encrypt:
-        passphrase = args.passphrase or _prompt_secret("Encrypt passphrase")
+        passphrase = args.passphrase or _prompt_secret(t("Encrypt passphrase"))
     elif args.passphrase:
-        # User supplied passphrase without --encrypt: assume they meant to encrypt.
         passphrase = args.passphrase
 
     result = SyncManager(store).backup(passphrase=passphrase)
-    suffix = " (encrypted)" if result.encrypted else ""
-    print(f"Backed up {result.bytes_transferred} bytes to {result.remote_path}{suffix}.")
+    suffix = t(" (encrypted)") if result.encrypted else ""
+    print(t("Backed up {bytes} bytes to {path}{suffix}.",
+            bytes=result.bytes_transferred, path=result.remote_path, suffix=suffix))
 
 
 def cmd_cloud_restore(args: argparse.Namespace, store: ProfileStore) -> None:
@@ -471,17 +475,17 @@ def cmd_cloud_restore(args: argparse.Namespace, store: ProfileStore) -> None:
     try:
         result = manager.restore(passphrase=passphrase, force=args.force)
     except StoreError as exc:
-        # If decryption is required and not supplied, prompt and retry once.
         if "encrypted" in str(exc).lower() and passphrase is None and sys.stdin.isatty():
-            passphrase = _prompt_secret("Backup passphrase")
+            passphrase = _prompt_secret(t("Backup passphrase"))
             result = manager.restore(passphrase=passphrase, force=args.force)
         else:
             raise
 
-    suffix = " (decrypted)" if result.encrypted else ""
-    print(f"Restored {result.bytes_transferred} bytes from {result.remote_path}{suffix}.")
+    suffix = t(" (decrypted)") if result.encrypted else ""
+    print(t("Restored {bytes} bytes from {path}{suffix}.",
+            bytes=result.bytes_transferred, path=result.remote_path, suffix=suffix))
     if result.backup_local_path:
-        print(f"  Previous local profiles archived at: {result.backup_local_path}")
+        print(t("  Previous local profiles archived at: {path}", path=result.backup_local_path))
 
 
 def cmd_cloud_status(args: argparse.Namespace, store: ProfileStore) -> None:
@@ -495,19 +499,19 @@ def cmd_cloud_forget(args: argparse.Namespace, store: ProfileStore) -> None:
 
     if not args.yes and sys.stdin.isatty():
         confirm = _prompt_text(
-            "Remove stored WebDAV credentials and sync state? [y/N]",
+            t("Remove stored WebDAV credentials and sync state? [y/N]"),
             default="n",
             required=False,
         ).lower()
         if confirm not in ("y", "yes"):
-            print("Aborted.")
+            print(t("Aborted."))
             return
     result = SyncManager(store).forget()
     removed = (result.extra or {}).get("removed_paths") or []
     if not removed:
-        print("Nothing to remove (no cloud config on disk).")
+        print(t("Nothing to remove (no cloud config on disk)."))
         return
-    print("Removed:")
+    print(t("Removed:"))
     for path in removed:
         print(f"  {path}")
 
@@ -531,7 +535,7 @@ def cmd_cloud_pull(args: argparse.Namespace, store: ProfileStore) -> None:
             with urllib.request.urlopen(req, timeout=30) as resp:
                 sql = resp.read().decode("utf-8")
         except urllib.error.URLError as exc:
-            raise StoreError(f"Failed to download db.sql: {exc}") from exc
+            raise StoreError(t("Failed to download db.sql: {error}", error=exc)) from exc
     else:
         # WebDAV mode — use configured credentials
         from .sync.manager import SyncManager
@@ -542,42 +546,42 @@ def cmd_cloud_pull(args: argparse.Namespace, store: ProfileStore) -> None:
         pull_dir = args.pull_dir or config.pull_dir
         if not pull_dir:
             raise StoreError(
-                "No pull directory configured. Either:\n"
-                "  1. Run 'cc-switch cloud setup' and set the pull directory, or\n"
-                "  2. Pass --pull-dir /path/on/webdav/, or\n"
-                "  3. Pass a direct URL: cc-switch cloud pull <url>"
+                t("No pull directory configured. Either:\n"
+                  "  1. Run 'cc-switch cloud setup' and set the pull directory, or\n"
+                  "  2. Pass --pull-dir /path/on/webdav/, or\n"
+                  "  3. Pass a direct URL: cc-switch cloud pull <url>")
             )
         remote_path = pull_dir.rstrip("/") + "/db.sql"
         client = manager._client(config)
         try:
             response = client.get(remote_path)
         except WebDAVError as exc:
-            raise StoreError(f"Failed to download {remote_path}: {exc}") from exc
+            raise StoreError(t("Failed to download {path}: {error}", path=remote_path, error=exc)) from exc
         sql = response.body.decode("utf-8")
 
     result = pull_from_sql(sql, store, overwrite=args.overwrite)
 
     if result.added:
-        print(f"Added ({len(result.added)}):")
+        print(t("Added ({count}):", count=len(result.added)))
         for label in result.added:
             print(f"  + {label}")
     if result.updated:
-        print(f"Updated ({len(result.updated)}):")
+        print(t("Updated ({count}):", count=len(result.updated)))
         for label in result.updated:
             print(f"  ~ {label}")
     if result.active_set:
-        print(f"Active profiles set:")
+        print(t("Active profiles set:"))
         for label in result.active_set:
             print(f"  * {label}")
     if result.skipped:
-        print(f"Skipped ({len(result.skipped)}):")
+        print(t("Skipped ({count}):", count=len(result.skipped)))
         for label in result.skipped:
             print(f"  - {label}")
     total = len(result.added) + len(result.updated)
     if total:
-        print(f"\nDone. {total} profile(s) imported. Run 'cc-switch list' to see them.")
+        print(f"\n{t('Done. {count} profile(s) imported. Run cc-switch list to see them.', count=total)}")
     else:
-        print("No new profiles imported.")
+        print(t("No new profiles imported."))
 
 
 def run(argv: list[str] | None = None) -> int:

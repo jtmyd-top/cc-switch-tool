@@ -4,6 +4,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
+from .i18n import t
 from .writers.common import read_json, write_json
 
 
@@ -36,7 +37,7 @@ class ProfileStore:
 
     def validate_tool(self, tool: str) -> None:
         if tool not in TOOLS:
-            raise StoreError(f"Unsupported tool: {tool}. Choose one of: {', '.join(TOOLS)}")
+            raise StoreError(t("Unsupported tool: {tool}. Choose one of: {tools}", tool=tool, tools=', '.join(TOOLS)))
 
     def add_profile(
         self,
@@ -49,11 +50,11 @@ class ProfileStore:
     ) -> None:
         self.validate_tool(tool)
         if not name.strip():
-            raise StoreError("Profile name cannot be empty")
+            raise StoreError(t("Profile name cannot be empty"))
         if not base_url.strip():
-            raise StoreError("--base-url is required")
+            raise StoreError(t("--base-url is required"))
         if not api_key.strip():
-            raise StoreError("--api-key is required")
+            raise StoreError(t("--api-key is required"))
 
         profile: dict[str, str] = {
             "base_url": base_url.strip(),
@@ -87,7 +88,7 @@ class ProfileStore:
         self.validate_tool(tool)
         profiles = self.data["profiles"][tool]
         if name not in profiles:
-            raise StoreError(f"Profile not found: {tool}/{name}")
+            raise StoreError(t("Profile not found: {tool}/{name}", tool=tool, name=name))
         profile = profiles[name]
 
         if base_url is not None:
@@ -122,7 +123,7 @@ class ProfileStore:
         self.validate_tool(tool)
         profiles = self.data["profiles"][tool]
         if name not in profiles:
-            raise StoreError(f"Profile not found: {tool}/{name}")
+            raise StoreError(t("Profile not found: {tool}/{name}", tool=tool, name=name))
         del profiles[name]
         if self.data["active"].get(tool) == name:
             del self.data["active"][tool]
@@ -143,7 +144,7 @@ class ProfileStore:
     def get_active_profile(self, tool: str) -> tuple[str, dict[str, str]]:
         active = self.get_active_name(tool)
         if not active:
-            raise StoreError(f"No active profile for {tool}")
+            raise StoreError(t("No active profile for {tool}", tool=tool))
         return active, self.get_profile(tool, active)
 
     def set_active(self, tool: str, name: str) -> dict[str, str]:

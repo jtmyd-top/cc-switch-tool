@@ -307,6 +307,37 @@ _ZH: dict[str, str] = {
     "{tool}:": "{tool}：",
     "  (none)": "  （无）",
     "{tool}: (none)": "{tool}：（无）",
+
+    # ----------- cloud pull
+    "import profiles from a cc-switch desktop app backup (db.sql format)":
+        "从 cc-switch 桌面版备份（db.sql 格式）导入配置",
+    "URL to db.sql (optional; if omitted, uses configured WebDAV + pull_dir)":
+        "db.sql 的 URL（可选；不填则使用已配置的 WebDAV + pull_dir）",
+    "overwrite existing local profiles with the same name":
+        "覆盖本地同名配置",
+    "override the pull directory for this invocation":
+        "本次临时指定 pull 目录",
+    "remote directory where the GUI cc-switch app backs up (for 'cloud pull')":
+        "GUI 版 cc-switch 的备份目录（用于 'cloud pull'）",
+    "GUI cc-switch pull directory (blank = skip)":
+        "GUI 版 cc-switch 的 pull 目录（留空跳过）",
+    "No pull directory configured. Either:\n"
+    "  1. Run 'cc-switch cloud setup' and set the pull directory, or\n"
+    "  2. Pass --pull-dir /path/on/webdav/, or\n"
+    "  3. Pass a direct URL: cc-switch cloud pull <url>":
+        "未配置 pull 目录。请选择：\n"
+        "  1. 运行 'cc-switch cloud setup' 设置 pull 目录，或\n"
+        "  2. 传 --pull-dir /webdav上的路径/，或\n"
+        "  3. 直接传 URL：cc-switch cloud pull <url>",
+    "Failed to download db.sql: {error}": "下载 db.sql 失败：{error}",
+    "Failed to download {path}: {error}": "下载 {path} 失败：{error}",
+    "Added ({count}):": "已添加（{count}）：",
+    "Updated ({count}):": "已更新（{count}）：",
+    "Active profiles set:": "已设为当前生效：",
+    "Skipped ({count}):": "已跳过（{count}）：",
+    "Done. {count} profile(s) imported. Run cc-switch list to see them.":
+        "完成。已导入 {count} 个配置。运行 'cc-switch list' 查看。",
+    "No new profiles imported.": "没有新配置被导入。",
 }
 
 
