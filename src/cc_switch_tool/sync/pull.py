@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Iterable
 
 from ..store import ProfileStore, StoreError, TOOLS
 
@@ -88,22 +88,60 @@ def _parse_sql_values(raw: str) -> list[Any]:
     return values
 
 
+def _first_string(*values: Any) -> str:
+    for value in values:
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def _first_from_mapping(mapping: dict[str, Any], keys: Iterable[str]) -> str:
+    return _first_string(*(mapping.get(key) for key in keys))
+
+
 def _extract_profile_claude(settings_config: dict) -> dict[str, str] | None:
     """Convert a claude provider's settings_config to a local profile dict."""
     env = settings_config.get("env", {})
-    base_url = env.get("ANTHROPIC_BASE_URL", "")
-    api_key = env.get("ANTHROPIC_AUTH_TOKEN") or env.get("ANTHROPIC_API_KEY", "")
+    if not isinstance(env, dict):
+        env = {}
+    base_url = _first_string(env.get("ANTHROPIC_BASE_URL"))
+    api_key = _first_string(env.get("ANTHROPIC_AUTH_TOKEN"), env.get("ANTHROPIC_API_KEY"))
     if not base_url or not api_key:
         return None
-    return {"base_url": base_url, "api_key": api_key}
+    profile: dict[str, str] = {"base_url": base_url, "api_key": api_key}
+    model = _first_from_mapping(
+        env,
+        (
+            "ANTHROPIC_MODEL",
+            "CLAUDE_MODEL",
+            "ANTHROPIC_DEFAULT_MODEL",
+            "CLAUDE_DEFAULT_MODEL",
+        ),
+    )
+    if not model:
+        model = _first_from_mapping(
+            settings_config,
+            (
+                "model",
+                "default_model",
+                "defaultModel",
+                "default_model_name",
+                "defaultModelName",
+            ),
+        )
+    if model:
+        profile["model"] = model
+    return profile
 
 
 def _extract_profile_codex(settings_config: dict) -> dict[str, str] | None:
     """Convert a codex provider's settings_config to a local profile dict."""
     auth = settings_config.get("auth", {})
-    api_key = auth.get("OPENAI_API_KEY") or auth.get("auth_mode", "")
+    if not isinstance(auth, dict):
+        auth = {}
+    api_key = _first_string(auth.get("OPENAI_API_KEY"), auth.get("auth_mode"))
     if not api_key or api_key == "apikey":
-        api_key = auth.get("OPENAI_API_KEY", "")
+        api_key = _first_string(auth.get("OPENAI_API_KEY"))
     config_str = settings_config.get("config", "")
     base_url = ""
     model = ""
@@ -126,8 +164,10 @@ def _extract_profile_codex(settings_config: dict) -> dict[str, str] | None:
 def _extract_profile_gemini(settings_config: dict) -> dict[str, str] | None:
     """Convert a gemini provider's settings_config to a local profile dict."""
     env = settings_config.get("env", {})
-    base_url = env.get("GOOGLE_GEMINI_BASE_URL") or env.get("GEMINI_BASE_URL", "")
-    api_key = env.get("GEMINI_API_KEY", "")
+    if not isinstance(env, dict):
+        env = {}
+    base_url = _first_string(env.get("GOOGLE_GEMINI_BASE_URL"), env.get("GEMINI_BASE_URL"))
+    api_key = _first_string(env.get("GEMINI_API_KEY"))
     if not base_url or not api_key:
         return None
     profile: dict[str, str] = {"base_url": base_url, "api_key": api_key}
@@ -163,6 +203,9 @@ def pull_from_sql(sql: str, store: ProfileStore, *, overwrite: bool = False) -> 
             settings_config = json.loads(settings_raw) if settings_raw else {}
         except json.JSONDecodeError:
             skipped.append(f"{app_type}/{name} (invalid settings_config JSON)")
+            continue
+        if not isinstance(settings_config, dict):
+            skipped.append(f"{app_type}/{name} (settings_config is not an object)")
             continue
 
         extractor = _EXTRACTORS.get(app_type)

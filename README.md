@@ -44,6 +44,12 @@ Use `cc-switch-tool` when you need to:
 
 ## Installation
 
+Bootstrap installer with a Python 3.9+ check:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jtmyd-top/cc-switch-tool/main/scripts/bootstrap_install.py | python3
+```
+
 Recommended with `pipx`:
 
 ```bash

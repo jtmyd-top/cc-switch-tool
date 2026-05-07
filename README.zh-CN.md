@@ -43,6 +43,12 @@ Python 实现，可以避免原生二进制对 `libssl.so.3` 的直接依赖。
 
 ## 安装
 
+带 Python 3.9+ 检查的引导安装脚本：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jtmyd-top/cc-switch-tool/main/scripts/bootstrap_install.py | python3
+```
+
 推荐使用 `pipx`：
 
 ```bash

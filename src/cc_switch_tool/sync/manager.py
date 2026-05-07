@@ -188,6 +188,7 @@ class SyncManager:
                 _refuse_if_local_has_unique_profiles(local_path, data)
 
         local_path.parent.mkdir(parents=True, exist_ok=True)
+        _preserve_local_profile_metadata(data, self.store.data)
 
         # Preserve local active profiles unless they no longer exist in the
         # restored data.
@@ -242,12 +243,43 @@ class SyncManager:
             "password": redact(config.password),
             "remote_path": config.remote_path,
             "verify_tls": config.verify_tls,
+            "pull_dir": config.pull_dir,
             "last_backup": state.get("last_backup"),
             "last_restore": state.get("last_restore"),
             "last_backup_size": state.get("last_backup_size"),
             "last_backup_encrypted": state.get("last_backup_encrypted", False),
             "last_backup_etag": state.get("last_backup_etag"),
         }
+
+
+def _preserve_local_profile_metadata(remote_data: dict[str, Any], local_data: dict[str, Any]) -> None:
+    """Keep optional local profile metadata when an older backup lacks it.
+
+    Modern ``profiles.json`` backups include the whole profile object, including
+    optional fields like ``model``. This merge path protects users restoring an
+    older backup from silently clearing a default model they already configured
+    locally for the same tool/profile.
+    """
+    remote_profiles = remote_data.get("profiles")
+    local_profiles = local_data.get("profiles")
+    if not isinstance(remote_profiles, dict) or not isinstance(local_profiles, dict):
+        return
+
+    for tool, profiles in remote_profiles.items():
+        if not isinstance(profiles, dict):
+            continue
+        local_tool_profiles = local_profiles.get(tool)
+        if not isinstance(local_tool_profiles, dict):
+            continue
+        for name, profile in profiles.items():
+            if not isinstance(profile, dict) or profile.get("model"):
+                continue
+            local_profile = local_tool_profiles.get(name)
+            if not isinstance(local_profile, dict):
+                continue
+            local_model = local_profile.get("model")
+            if isinstance(local_model, str) and local_model.strip():
+                profile["model"] = local_model.strip()
 
 
 def _refuse_if_local_has_unique_profiles(local_path: Path, remote_data: dict[str, Any]) -> None:
