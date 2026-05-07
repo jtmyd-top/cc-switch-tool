@@ -44,7 +44,7 @@ def build_parser() -> argparse.ArgumentParser:
     add.add_argument("--base-url", required=True)
     add.add_argument("--api-key", required=True)
     add.add_argument("--provider", help=t("Codex provider id; defaults to profile name"))
-    add.add_argument("--model", help=t("optional model name for Codex"))
+    add.add_argument("--model", help=t("model name (Codex writes to config.toml, Claude sets ANTHROPIC_MODEL)"))
     add.set_defaults(func=cmd_add)
 
     use = subparsers.add_parser("use", help=t("activate a profile and write tool config"))
@@ -61,7 +61,7 @@ def build_parser() -> argparse.ArgumentParser:
     edit.add_argument("--base-url")
     edit.add_argument("--api-key")
     edit.add_argument("--provider", help=t("Codex provider id (use --clear-provider to drop)"))
-    edit.add_argument("--model", help=t("Codex model name (use --clear-model to drop)"))
+    edit.add_argument("--model", help=t("model name (use --clear-model to drop)"))
     edit.add_argument("--clear-provider", action="store_true")
     edit.add_argument("--clear-model", action="store_true")
     edit.set_defaults(func=cmd_edit)

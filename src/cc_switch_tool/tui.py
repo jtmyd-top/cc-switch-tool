@@ -103,6 +103,7 @@ def _add_profile_flow(q, store: ProfileStore, tool: str) -> str | None:
             required=False,
         )
         provider = provider_in or None
+    if tool in ("codex", "claude"):
         model_in = _ask_text(q, t("Model (optional):"), required=False)
         model = model_in or None
 
@@ -166,6 +167,7 @@ def _edit_profile_flow(q, store: ProfileStore, tool: str) -> str | None:
         if provider_in is None:
             return None
         provider_arg = provider_in
+    if tool in ("codex", "claude"):
         model_in = _ask_text(
             q,
             t("New model (leave empty to keep current):"),

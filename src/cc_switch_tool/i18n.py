@@ -81,14 +81,15 @@ _ZH: dict[str, str] = {
     "add or update a profile": "添加或更新一个站点配置",
     "Codex provider id; defaults to profile name":
         "Codex 的 provider id；不填则使用配置名",
-    "optional model name for Codex": "Codex 的模型名（可选）",
+    "model name (Codex writes to config.toml, Claude sets ANTHROPIC_MODEL)":
+        "模型名（Codex 写入 config.toml，Claude 设置 ANTHROPIC_MODEL）",
     "activate a profile and write tool config": "启用某个配置并写入对应工具的设置",
     "modify an existing profile (any subset of fields)":
         "修改已有配置（任意字段子集）",
     "Codex provider id (use --clear-provider to drop)":
         "Codex 的 provider id（用 --clear-provider 清除）",
-    "Codex model name (use --clear-model to drop)":
-        "Codex 的模型名（用 --clear-model 清除）",
+    "model name (use --clear-model to drop)":
+        "模型名（用 --clear-model 清除）",
     "list profiles": "列出全部配置",
     "show active profile": "显示当前生效的配置",
     "remove a profile": "删除一个配置",
