@@ -36,6 +36,10 @@ def main():
     parser.add_argument("--yes", "-y", action="store_true", help="answer yes to prompts")
     args = parser.parse_args()
 
+    # When piped (curl | python3), stdin is not a tty — auto-confirm prompts
+    if not sys.stdin.isatty():
+        args.yes = True
+
     py = find_compatible_python()
     if not py:
         print("cc-switch-tool requires Python 3.9+.")
@@ -68,10 +72,11 @@ def main():
 
 
 def find_compatible_python():
-    candidates = []
-    if sys.version_info >= MIN_PYTHON:
-        candidates.append([sys.executable])
+    # If the current interpreter is good enough, use it directly.
+    if sys.version_info >= MIN_PYTHON and sys.executable:
+        return [sys.executable]
 
+    candidates = []
     for name in (
         "python3.13",
         "python3.12",
