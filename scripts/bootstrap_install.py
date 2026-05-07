@@ -107,21 +107,31 @@ def post_install_fixup():
 
 
 def ensure_system_links(user_bin):
-    """Expose commands through /usr/local/bin when possible."""
-    system_bin = "/usr/local/bin"
-    if os.name == "nt" or not os.path.isdir(system_bin):
+    """Expose commands through a stable system PATH directory when possible."""
+    if os.name == "nt":
         return
 
-    for cmd_name in ("ccs", "cc-switch"):
-        source = os.path.join(user_bin, cmd_name)
-        target = os.path.join(system_bin, cmd_name)
-        if not os.path.exists(source):
+    for system_bin in candidate_system_bins():
+        if not os.path.isdir(system_bin):
             continue
-        if os.path.realpath(target) == os.path.realpath(source):
-            continue
-        rc = run_quiet(with_sudo(["ln", "-sf", source, target]))
-        if rc == 0:
-            print("Linked: {0} -> {1}".format(target, source))
+        linked_any = False
+        for cmd_name in ("ccs", "cc-switch"):
+            source = os.path.join(user_bin, cmd_name)
+            target = os.path.join(system_bin, cmd_name)
+            if not os.path.exists(source):
+                continue
+            if os.path.islink(target) and os.path.realpath(target) == os.path.realpath(source):
+                linked_any = True
+                continue
+            if os.path.exists(target) and not os.path.islink(target):
+                print("Skipping existing non-symlink command: {0}".format(target))
+                continue
+            rc = run_quiet(with_sudo(["ln", "-sf", source, target]))
+            if rc == 0:
+                linked_any = True
+                print("Linked: {0} -> {1}".format(target, source))
+        if linked_any:
+            break
 
 
 def ensure_user_bin_on_path(user_bin):
@@ -138,8 +148,64 @@ def ensure_user_bin_on_path(user_bin):
         '  *) export PATH="$HOME/.local/bin:$PATH" ;;\n'
         "esac"
     )
+    profile_d_path = "/etc/profile.d/cc-switch-tool.sh"
+    if write_system_profile_block(profile_d_path, block):
+        return
+
     for profile_path in ("~/.profile", "~/.bash_profile", "~/.bashrc"):
         append_shell_block(os.path.expanduser(profile_path), block)
+
+
+def candidate_system_bins():
+    path_dirs = [p for p in os.environ.get("PATH", "").split(os.pathsep) if p]
+    preferred = ["/usr/local/bin", "/usr/bin"]
+    seen = set()
+    result = []
+    for directory in preferred + path_dirs:
+        if directory in seen:
+            continue
+        seen.add(directory)
+        if directory.startswith("/usr/") and directory.endswith("/bin"):
+            result.append(directory)
+    return result
+
+
+def write_system_profile_block(path, block):
+    if os.name == "nt":
+        return False
+    if not os.path.isdir(os.path.dirname(path)):
+        return False
+    try:
+        content = ""
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as handle:
+                content = handle.read()
+            if "# cc-switch-tool" in content:
+                return True
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(block + "\n")
+        print("Updated system profile: {0}".format(path))
+        return True
+    except OSError:
+        pass
+
+    tmp_path = "/tmp/cc-switch-tool-profile.sh"
+    try:
+        with open(tmp_path, "w", encoding="utf-8") as handle:
+            handle.write(block + "\n")
+    except OSError as exc:
+        print("Warning: could not prepare system profile update: {0}".format(exc))
+        return False
+
+    rc = run_quiet(with_sudo(["install", "-m", "0644", tmp_path, path]))
+    try:
+        os.remove(tmp_path)
+    except OSError:
+        pass
+    if rc == 0:
+        print("Updated system profile: {0}".format(path))
+        return True
+    return False
 
 
 def append_shell_block(path, block):
