@@ -78,6 +78,9 @@ _ZH: dict[str, str] = {
         "不带参数运行可进入交互式菜单。",
     "open the interactive TUI (default with no args)":
         "打开交互式菜单（不带参数时的默认行为）",
+    "upgrade cc-switch-tool itself": "升级 cc-switch-tool 程序本身",
+    "upgrade method (default: auto)": "升级方式（默认：auto）",
+    "pip-installable project URL or path": "可被 pip 安装的项目 URL 或路径",
     "add or update a profile": "添加或更新一个站点配置",
     "Codex provider id; defaults to profile name":
         "Codex 的 provider id；不填则使用配置名",
@@ -146,6 +149,13 @@ _ZH: dict[str, str] = {
         "缺少 '{message}' 的值，且当前 stdin 不是交互式；请在命令行用 --password 传入",
     "edit needs at least one of --base-url, --api-key, --provider, --model, --clear-provider, --clear-model":
         "edit 至少需要 --base-url、--api-key、--provider、--model、--clear-provider、--clear-model 之一",
+    "Unsupported upgrade method: {method}": "不支持的升级方式：{method}",
+    "pipx was not found on PATH.": "PATH 中找不到 pipx。",
+    "Upgrade method: {method}": "升级方式：{method}",
+    "Upgrading the current Python environment.": "将升级当前 Python 环境中的安装。",
+    "Upgrading the current user installation.": "将升级当前用户安装。",
+    "Running: {command}": "执行：{command}",
+    "Upgrade failed with exit code {code}": "升级失败，退出码：{code}",
 
     # cloud cli outputs
     "cloud: not configured. Run 'cc-switch cloud setup'.":
@@ -210,6 +220,10 @@ _ZH: dict[str, str] = {
         '提示：如果当前 shell 还没有 OPENAI_API_KEY，'
         '运行  eval "$(cc-switch env codex)"',
     "cc-switch — pick a tool": "cc-switch — 选择一个工具",
+    "↻ upgrade program": "↻ 升级程序",
+    "Run upgrade now?": "现在执行升级？",
+    "Upgrade completed. Restart cc-switch to use the new version.":
+        "升级完成。请重新打开 cc-switch 使用新版本。",
     "quit": "退出",
 
     # TUI edit-profile prompts

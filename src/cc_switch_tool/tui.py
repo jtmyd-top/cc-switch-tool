@@ -687,6 +687,29 @@ def _lang_menu(q) -> None:
     q.print(t("Language set to: {lang}", lang="中文" if answer == "zh" else "English"), style="fg:#5fd75f")
 
 
+def _upgrade_flow(q) -> None:
+    from .upgrade import UpgradeError, execute_plan, plan_upgrade
+
+    try:
+        plan = plan_upgrade()
+    except UpgradeError as exc:
+        q.print(t("Error: {error}", error=exc), style="fg:#ff5555")
+        return
+
+    q.print(t("Upgrade method: {method}", method=plan.method), style="fg:#87afff")
+    if plan.note:
+        q.print(plan.note, style="fg:#888888")
+    q.print(t("Running: {command}", command=" ".join(plan.command)), style="fg:#888888")
+    confirm = q.confirm(t("Run upgrade now?"), default=True).ask()
+    if not confirm:
+        return
+    rc = execute_plan(plan)
+    if rc == 0:
+        q.print(t("Upgrade completed. Restart cc-switch to use the new version."), style="fg:#5fd75f")
+    else:
+        q.print(t("Upgrade failed with exit code {code}", code=rc), style="fg:#ff5555")
+
+
 def run_tui() -> int:
     if not sys.stdin.isatty() or not sys.stdout.isatty():
         raise TUIUnavailable(t("interactive TUI requires a TTY"))
@@ -699,6 +722,7 @@ def run_tui() -> int:
         ]
         choices.append(q.Separator())
         choices.append(q.Choice(title=_cloud_summary_label(store), value=("cloud", None)))
+        choices.append(q.Choice(title=t("↻ upgrade program"), value=("upgrade", None)))
         choices.append(q.Choice(title=_lang_label(), value=("lang", None)))
         choices.append(q.Separator())
         choices.append(q.Choice(title=t("quit"), value="__quit__"))
@@ -716,5 +740,7 @@ def run_tui() -> int:
             _tool_menu(q, store, value)
         elif kind == "cloud":
             _cloud_menu(q, store)
+        elif kind == "upgrade":
+            _upgrade_flow(q)
         elif kind == "lang":
             _lang_menu(q)

@@ -38,6 +38,20 @@ def build_parser() -> argparse.ArgumentParser:
     menu = subparsers.add_parser("menu", help=t("open the interactive TUI (default with no args)"))
     menu.set_defaults(func=cmd_menu)
 
+    upgrade = subparsers.add_parser("upgrade", help=t("upgrade cc-switch-tool itself"))
+    upgrade.add_argument(
+        "--method",
+        choices=("auto", "pipx", "pip"),
+        default="auto",
+        help=t("upgrade method (default: auto)"),
+    )
+    upgrade.add_argument(
+        "--project-url",
+        default=None,
+        help=t("pip-installable project URL or path"),
+    )
+    upgrade.set_defaults(func=cmd_upgrade)
+
     add = subparsers.add_parser("add", help=t("add or update a profile"))
     add.add_argument("tool", choices=TOOLS)
     add.add_argument("name")
@@ -311,6 +325,17 @@ def cmd_menu(args: argparse.Namespace, store: ProfileStore) -> None:
         run_tui()
     except TUIUnavailable as exc:
         raise StoreError(str(exc)) from exc
+
+
+def cmd_upgrade(args: argparse.Namespace, store: ProfileStore) -> None:
+    from .upgrade import PROJECT_URL, UpgradeError, run_upgrade
+
+    try:
+        rc = run_upgrade(method=args.method, project_url=args.project_url or PROJECT_URL)
+    except UpgradeError as exc:
+        raise StoreError(str(exc)) from exc
+    if rc != 0:
+        raise StoreError(t("Upgrade failed with exit code {code}", code=rc))
 
 
 # ---------------------------------------------------------------- cloud sync

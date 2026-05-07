@@ -83,6 +83,15 @@ cc-switch
 ccs
 ```
 
+Upgrade an existing installation:
+
+```bash
+cc-switch upgrade
+```
+
+You can also open `cc-switch` with no arguments and choose `upgrade program`
+from the main menu.
+
 ## Quick Start
 
 1. Add one or more profiles:

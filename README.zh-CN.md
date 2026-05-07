@@ -82,6 +82,14 @@ cc-switch
 ccs
 ```
 
+已安装设备升级：
+
+```bash
+cc-switch upgrade
+```
+
+也可以直接运行不带参数的 `cc-switch`，然后在主菜单里选择“升级程序”。
+
 ## 快速开始
 
 1. 添加配置：
