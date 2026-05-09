@@ -628,10 +628,7 @@ def _node_install_commands():
         return [["winget", "install", "-e", "--id", "OpenJS.NodeJS.LTS"]]
     if system == "Linux":
         if shutil.which("apt-get"):
-            return [
-                with_sudo(["apt-get", "update"]),
-                with_sudo(["apt-get", "install", "-y", "nodejs", "npm"]),
-            ]
+            return _apt_node_install_commands()
         if shutil.which("dnf"):
             return [with_sudo(["dnf", "install", "-y", "nodejs", "npm"])]
         if shutil.which("yum"):
@@ -643,6 +640,27 @@ def _node_install_commands():
         if shutil.which("apk"):
             return [with_sudo(["apk", "add", "nodejs", "npm"])]
     return []
+
+
+def _apt_node_install_commands():
+    """Install Node.js 20+ on apt systems instead of distro-old nodejs packages."""
+    setup_script = (
+        "set -e; "
+        "mkdir -p /etc/apt/keyrings; "
+        "curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key "
+        "| gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg; "
+        "chmod 644 /etc/apt/keyrings/nodesource.gpg; "
+        "echo 'deb [signed-by=/etc/apt/keyrings/nodesource.gpg] "
+        "https://deb.nodesource.com/node_{0}.x nodistro main' "
+        "> /etc/apt/sources.list.d/nodesource.list"
+    ).format(NODE_REQUIRED_MAJOR)
+    return [
+        with_sudo(["apt-get", "update"]),
+        with_sudo(["apt-get", "install", "-y", "ca-certificates", "curl", "gnupg"]),
+        with_sudo(["bash", "-c", setup_script]),
+        with_sudo(["apt-get", "update"]),
+        with_sudo(["apt-get", "install", "-y", "nodejs"]),
+    ]
 
 
 def _tool_version(command):
