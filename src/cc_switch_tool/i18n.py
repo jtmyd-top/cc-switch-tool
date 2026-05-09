@@ -163,6 +163,12 @@ _ZH: dict[str, str] = {
     "You may already be on the latest release, or the package version was not bumped.":
         "升级已完成，但版本仍然是 {version}。可能你已经是最新版，或这次发布没有递增版本号。",
     "Upgrade failed with exit code {code}": "升级失败，退出码：{code}",
+    "Current Python pip is broken; trying to repair it with ensurepip.":
+        "当前 Python 的 pip 已损坏；正在尝试用 ensurepip 修复。",
+    "Could not repair pip for the current Python.":
+        "无法修复当前 Python 的 pip。",
+    "Try reinstalling with the bootstrap installer or pipx.":
+        "请尝试使用 bootstrap 安装脚本或 pipx 重新安装。",
 
     # cloud cli outputs
     "cloud: not configured. Run 'cc-switch cloud setup'.":

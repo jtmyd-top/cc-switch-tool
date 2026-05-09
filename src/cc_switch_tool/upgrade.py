@@ -56,6 +56,8 @@ def execute_plan(plan: UpgradePlan) -> int:
     print(t("Upgrade method: {method}", method=plan.method))
     if plan.note:
         print(plan.note)
+    if plan.method == "pip" and not _ensure_pip_available():
+        return 1
     print(t("Running: {command}", command=" ".join(plan.command)))
     rc = subprocess.call(plan.command)
     if rc != 0:
@@ -108,6 +110,37 @@ def _current_python_pip_plan(project_url: str) -> UpgradePlan:
 
 def _inside_virtualenv() -> bool:
     return sys.prefix != getattr(sys, "base_prefix", sys.prefix)
+
+
+def _ensure_pip_available() -> bool:
+    if _pip_works():
+        return True
+
+    print(t("Current Python pip is broken; trying to repair it with ensurepip."))
+    command = [sys.executable, "-m", "ensurepip", "--upgrade"]
+    if not _inside_virtualenv():
+        command.append("--user")
+    print(t("Running: {command}", command=" ".join(command)))
+    rc = subprocess.call(command)
+    if rc == 0 and _pip_works():
+        return True
+
+    print(t("Could not repair pip for the current Python."))
+    print(t("Try reinstalling with the bootstrap installer or pipx."))
+    return False
+
+
+def _pip_works() -> bool:
+    try:
+        proc = subprocess.run(
+            [sys.executable, "-m", "pip", "--version"],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except OSError:
+        return False
+    return proc.returncode == 0
 
 
 def _looks_like_pipx_install() -> bool:
