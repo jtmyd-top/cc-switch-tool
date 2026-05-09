@@ -47,11 +47,20 @@ def main():
         action="store_true",
         help="skip installing the bundled AI CLI tools (codex, claude, gemini)",
     )
+    parser.add_argument(
+        "--only-clis",
+        action="store_true",
+        help="only install/update Node.js and the bundled AI CLI tools",
+    )
     args = parser.parse_args()
 
     # When piped (curl | python3), stdin is not a tty — auto-confirm prompts
     if not sys.stdin.isatty():
         args.yes = True
+
+    if args.only_clis:
+        install_node_clis(args.yes)
+        return 0
 
     py = find_compatible_python()
     if not py:
@@ -85,6 +94,10 @@ def main():
         raise AssertionError("unknown method: {0}".format(method))
 
     if rc != 0:
+        if not args.skip_clis:
+            print("")
+            print("cc-switch-tool installation failed; continuing with AI CLI tools.")
+            install_node_clis(args.yes)
         return rc
 
     post_install_fixup()
