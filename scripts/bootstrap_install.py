@@ -470,7 +470,7 @@ def _try_get_pip(py):
     except ImportError:
         return False
 
-    url = "https://bootstrap.pypa.io/get-pip.py"
+    url = _get_pip_url(py)
     print("Downloading {0} ...".format(url))
     fd, tmp_path = tempfile.mkstemp(suffix="-get-pip.py")
     os.close(fd)
@@ -489,6 +489,14 @@ def _try_get_pip(py):
     except OSError:
         pass
     return rc == 0
+
+
+def _get_pip_url(py):
+    """Return the get-pip.py URL compatible with the target Python runtime."""
+    minor = _python_minor(py)
+    if minor in ("3.9", "3.8", "3.7"):
+        return "https://bootstrap.pypa.io/pip/{0}/get-pip.py".format(minor)
+    return "https://bootstrap.pypa.io/get-pip.py"
 
 
 def install_with_venv(py, project_url):
