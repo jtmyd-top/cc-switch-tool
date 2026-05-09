@@ -80,6 +80,13 @@ def main():
     version = python_version(py)
     print("Using Python: {0} ({1})".format(format_cmd(py), version or "unknown version"))
 
+    if not ensure_git_for_project(args.project_url, args.yes):
+        if not args.skip_clis:
+            print("")
+            print("git is unavailable; continuing with AI CLI tools.")
+            install_node_clis(args.yes)
+        return 1
+
     method = args.method
     if method == "auto":
         method = "pipx" if shutil.which("pipx") else "pip-user"
@@ -339,6 +346,49 @@ def install_python():
         if shutil.which("apk"):
             return run(with_sudo(["apk", "add", "python3", "py3-pip"])) == 0
 
+    return False
+
+
+def ensure_git_for_project(project_url, assume_yes):
+    if not _project_needs_git(project_url) or shutil.which("git"):
+        return True
+    print("git is required to install {0}.".format(project_url))
+    if not confirm("Install git now?", assume_yes):
+        print("Install git first, then rerun this script.")
+        return False
+    if not install_git():
+        print("Automatic git installation failed or is unsupported on this system.")
+        print("Install git first, then rerun this script.")
+        return False
+    return bool(shutil.which("git"))
+
+
+def _project_needs_git(project_url):
+    return project_url.startswith("git+") or project_url.endswith(".git")
+
+
+def install_git():
+    if is_termux() and shutil.which("pkg"):
+        return run(["pkg", "install", "-y", "git"]) == 0
+
+    system = platform.system()
+    if system == "Darwin" and shutil.which("brew"):
+        return run(["brew", "install", "git"]) == 0
+    if system == "Windows" and shutil.which("winget"):
+        return run(["winget", "install", "-e", "--id", "Git.Git"]) == 0
+    if system == "Linux":
+        if shutil.which("apt-get"):
+            return run(with_sudo(["apt-get", "update"])) == 0 and run(with_sudo(["apt-get", "install", "-y", "git"])) == 0
+        if shutil.which("dnf"):
+            return run(with_sudo(["dnf", "install", "-y", "git"])) == 0
+        if shutil.which("yum"):
+            return run(with_sudo(["yum", "install", "-y", "git"])) == 0
+        if shutil.which("pacman"):
+            return run(with_sudo(["pacman", "-Sy", "--noconfirm", "git"])) == 0
+        if shutil.which("zypper"):
+            return run(with_sudo(["zypper", "--non-interactive", "install", "git"])) == 0
+        if shutil.which("apk"):
+            return run(with_sudo(["apk", "add", "git"])) == 0
     return False
 
 
@@ -643,6 +693,8 @@ def _install_node(assume_yes):
 
 def _node_install_commands():
     system = platform.system()
+    if is_termux() and shutil.which("pkg"):
+        return [["sh", "-c", "pkg install -y nodejs-lts || pkg install -y nodejs"]]
     if system == "Darwin" and shutil.which("brew"):
         return [["brew", "install", "node"]]
     if system == "Windows" and shutil.which("winget"):
@@ -661,6 +713,11 @@ def _node_install_commands():
         if shutil.which("apk"):
             return [with_sudo(["apk", "add", "nodejs", "npm"])]
     return []
+
+
+def is_termux():
+    prefix = os.environ.get("PREFIX", "")
+    return "com.termux" in prefix or os.path.isdir("/data/data/com.termux/files/usr")
 
 
 def _apt_node_install_commands():

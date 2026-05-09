@@ -112,6 +112,9 @@ def install_nodejs() -> int:
 
 def node_install_commands() -> list[list[str]]:
     system = platform.system()
+    if _is_termux() and shutil.which("pkg"):
+        return [["sh", "-c", "pkg install -y nodejs-lts || pkg install -y nodejs"]]
+
     if system == "Darwin" and shutil.which("brew"):
         return [["brew", "install", "node"]]
 
@@ -135,6 +138,11 @@ def node_install_commands() -> list[list[str]]:
     raise NodeInstallUnsupported(
         t("Automatic Node.js installation is not supported on this system.")
     )
+
+
+def _is_termux() -> bool:
+    prefix = os.environ.get("PREFIX", "")
+    return "com.termux" in prefix or os.path.isdir("/data/data/com.termux/files/usr")
 
 
 def _apt_node_install_commands() -> list[list[str]]:
