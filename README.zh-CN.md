@@ -76,12 +76,26 @@ pipx install git+https://github.com/jtmyd-top/cc-switch-tool.git
 python3 -m pip install --user git+https://github.com/jtmyd-top/cc-switch-tool.git
 ```
 
+Termux 上可以先安装 `pipx`，也可以直接使用 `pip --user`：
+
+```bash
+pkg install python-pipx
+pipx ensurepath
+pipx install git+https://github.com/jtmyd-top/cc-switch-tool.git
+```
+
 从本地源码目录安装：
 
 ```bash
 git clone https://github.com/jtmyd-top/cc-switch-tool.git
 cd cc-switch-tool
 pipx install .
+```
+
+云同步加密功能使用可选依赖：
+
+```bash
+pipx inject cc-switch-tool cryptography
 ```
 
 开发模式，不安装直接运行：

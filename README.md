@@ -77,12 +77,26 @@ If `pipx` is unavailable:
 python3 -m pip install --user git+https://github.com/jtmyd-top/cc-switch-tool.git
 ```
 
+On Termux, install `pipx` first or use `pip --user` directly:
+
+```bash
+pkg install python-pipx
+pipx ensurepath
+pipx install git+https://github.com/jtmyd-top/cc-switch-tool.git
+```
+
 From a local checkout:
 
 ```bash
 git clone https://github.com/jtmyd-top/cc-switch-tool.git
 cd cc-switch-tool
 pipx install .
+```
+
+Cloud sync encryption uses an optional dependency:
+
+```bash
+pipx inject cc-switch-tool cryptography
 ```
 
 Development without installing:
