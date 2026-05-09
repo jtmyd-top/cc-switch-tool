@@ -10,7 +10,7 @@ from .i18n import t, set_lang
 from .store import ProfileStore, StoreError, TOOLS
 from .upgrade import installed_version
 from .writers import claude, codex, gemini
-from .writers.common import redact, shell_export
+from .writers.common import ensure_shell_env_loader, redact, shell_export
 
 
 WRITERS = {
@@ -18,6 +18,27 @@ WRITERS = {
     "codex": codex,
     "gemini": gemini,
 }
+
+
+def apply_active_profile(tool: str, name: str, profile: dict[str, str]) -> list[str]:
+    writer = WRITERS[tool]
+    if tool == "codex":
+        changed = writer.apply_profile(profile, name)
+    else:
+        changed = writer.apply_profile(profile)
+    changed.extend(ensure_shell_env_loader())
+    return changed
+
+
+def apply_all_active_profiles(store: ProfileStore) -> list[str]:
+    changed: list[str] = []
+    for tool in TOOLS:
+        active = store.get_active_name(tool)
+        if not active:
+            continue
+        profile = store.get_profile(tool, active)
+        changed.extend(apply_active_profile(tool, active, profile))
+    return changed
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -225,17 +246,10 @@ def cmd_add(args: argparse.Namespace, store: ProfileStore) -> None:
 
 def cmd_use(args: argparse.Namespace, store: ProfileStore) -> None:
     profile = store.set_active(args.tool, args.name)
-    writer = WRITERS[args.tool]
-    if args.tool == "codex":
-        changed = writer.apply_profile(profile, args.name)
-    else:
-        changed = writer.apply_profile(profile)
+    changed = apply_active_profile(args.tool, args.name, profile)
     print(t("Using {tool}/{name}", tool=args.tool, name=args.name))
     for path in changed:
         print(t("Updated {path}", path=path))
-    if args.tool == "codex":
-        print(t("Run this in your shell if Codex does not already have OPENAI_API_KEY:"))
-        print(f'eval "$(cc-switch env codex)"')
 
 
 def cmd_edit(args: argparse.Namespace, store: ProfileStore) -> None:
@@ -264,11 +278,7 @@ def cmd_edit(args: argparse.Namespace, store: ProfileStore) -> None:
     )
     print(t("Updated {tool}/{name}", tool=args.tool, name=args.name))
     if store.get_active_name(args.tool) == args.name:
-        writer = WRITERS[args.tool]
-        if args.tool == "codex":
-            changed = writer.apply_profile(profile, args.name)
-        else:
-            changed = writer.apply_profile(profile)
+        changed = apply_active_profile(args.tool, args.name, profile)
         print(t("Re-applied active profile {tool}/{name}", tool=args.tool, name=args.name))
         for path in changed:
             print(t("  updated {path}", path=path))
@@ -523,6 +533,12 @@ def cmd_cloud_restore(args: argparse.Namespace, store: ProfileStore) -> None:
             bytes=result.bytes_transferred, path=result.remote_path, suffix=suffix))
     if result.backup_local_path:
         print(t("  Previous local profiles archived at: {path}", path=result.backup_local_path))
+    store.data = store._load()
+    changed = apply_all_active_profiles(store)
+    if changed:
+        print(t("Re-applied active profiles:"))
+        for path in changed:
+            print(t("  updated {path}", path=path))
 
 
 def cmd_cloud_status(args: argparse.Namespace, store: ProfileStore) -> None:
@@ -617,6 +633,11 @@ def cmd_cloud_pull(args: argparse.Namespace, store: ProfileStore) -> None:
     total = len(result.added) + len(result.updated)
     if total:
         print(f"\n{t('Done. {count} profile(s) imported. Run cc-switch list to see them.', count=total)}")
+        changed = apply_all_active_profiles(store)
+        if changed:
+            print(t("Re-applied active profiles:"))
+            for path in changed:
+                print(t("  updated {path}", path=path))
     else:
         print(t("No new profiles imported."))
 

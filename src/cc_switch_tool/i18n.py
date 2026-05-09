@@ -227,11 +227,41 @@ _ZH: dict[str, str] = {
         '提示：如果当前 shell 还没有 OPENAI_API_KEY，'
         '运行  eval "$(cc-switch env codex)"',
     "cc-switch — pick a tool": "cc-switch — 选择一个工具",
+    "⬇ install/update CLI tools": "⬇ 安装/更新 CLI 工具",
     "↻ upgrade program": "↻ 升级程序",
     "Run upgrade now?": "现在执行升级？",
     "Upgrade completed. Restart cc-switch to use the new version.":
         "升级完成。请重新打开 cc-switch 使用新版本。",
     "quit": "退出",
+
+    # TUI install/update CLI tools
+    "npm was not found on PATH.": "PATH 中找不到 npm。",
+    "not found": "未找到",
+    "not installed": "未安装",
+    "Node.js {required}+ is required for these tools; found {found}.":
+        "这些工具需要 Node.js {required}+；当前为 {found}。",
+    "Automatic Node.js installation is not supported on this system.":
+        "当前系统暂不支持自动安装 Node.js。",
+    "Node.js is missing or too old.": "Node.js 未安装或版本过低。",
+    "Planned Node.js install commands:": "将执行的 Node.js 安装命令：",
+    "Install Node.js first, then install/update the CLI tools?":
+        "先安装 Node.js，然后继续安装/更新 CLI 工具？",
+    "Node.js installation failed with exit code {code}.":
+        "Node.js 安装失败，退出码：{code}。",
+    "Node.js: {version}": "Node.js：{version}",
+    "Installer: {path}": "安装器：{path}",
+    "Will install/update:": "将安装/更新：",
+    "  {name}: {version}  ({package})":
+        "  {name}：{version}  ({package})",
+    "Install/update all CLI tools now?": "现在安装/更新所有 CLI 工具？",
+    "Installing/updating {name}...": "正在安装/更新 {name}...",
+    "{name}: {before} -> {after}": "{name}：{before} -> {after}",
+    "{name} failed with exit code {code}":
+        "{name} 安装/更新失败，退出码：{code}",
+    "{count} CLI tool(s) failed to install/update.":
+        "有 {count} 个 CLI 工具安装/更新失败。",
+    "All CLI tools are installed/updated.":
+        "所有 CLI 工具已安装/更新完成。",
 
     # TUI edit-profile prompts
     "New base URL (leave empty to keep current):":

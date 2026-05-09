@@ -32,6 +32,8 @@ Python 实现，可以避免原生二进制对 `libssl.so.3` 的直接依赖。
 - 支持中文 / 英文界面，可通过 `--lang`、`CCS_LANG` 或 TUI 菜单切换。
 - 支持 WebDAV 云备份和恢复，方便多机器同步配置。
 - 支持从 GUI 版 `cc-switch` 的 WebDAV 备份中导入配置。
+- TUI 中可一键安装/更新 Codex CLI、Claude Code、Gemini CLI。
+- 引导安装脚本可自动安装 Node.js 和内置 AI CLI 工具。
 - 本地密钥文件尽量使用严格权限写入。
 - `list` 和 `show` 默认隐藏 API Key。
 
@@ -39,6 +41,7 @@ Python 实现，可以避免原生二进制对 `libssl.so.3` 的直接依赖。
 
 - Python 3.9+
 - 目标 CLI 的配置文件所在环境
+- 安装/更新 Codex CLI、Claude Code、Gemini CLI 时需要 Node.js 20+ 和 npm
 - 推荐使用 `pipx` 进行隔离安装
 
 ## 安装
@@ -47,6 +50,18 @@ Python 实现，可以避免原生二进制对 `libssl.so.3` 的直接依赖。
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jtmyd-top/cc-switch-tool/main/scripts/bootstrap_install.py | python3
+```
+
+默认情况下，引导安装脚本也会检查 Node.js 20+，并安装/更新：
+
+- `@openai/codex`
+- `@anthropic-ai/claude-code`
+- `@google/gemini-cli`
+
+如果只想安装 `cc-switch-tool`，可以加 `--skip-clis`：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jtmyd-top/cc-switch-tool/main/scripts/bootstrap_install.py | python3 - --skip-clis
 ```
 
 推荐使用 `pipx`：
@@ -197,7 +212,9 @@ ccs
 ```
 
 会进入 TUI 菜单。菜单中可以添加、编辑、删除、切换配置，也可以进行 WebDAV
-云同步、从 GUI 备份导入配置、切换语言。
+云同步、从 GUI 备份导入配置、切换语言，以及一键安装/更新 Codex CLI、
+Claude Code、Gemini CLI。如果 Node.js/npm 不存在或版本过低，TUI 会尝试先通过
+系统包管理器安装 Node.js。
 
 ## 语言
 
@@ -237,6 +254,8 @@ TUI 菜单里也可以切换语言。保存后的语言配置位于：
 
 ```text
 ~/.claude/settings.json
+~/.cc-switch-tool/active.env
+~/.bashrc
 ```
 
 写入类似内容：
@@ -258,23 +277,28 @@ TUI 菜单里也可以切换语言。保存后的语言配置位于：
 ```text
 ~/.codex/config.toml
 ~/.cc-switch-tool/codex.env
+~/.cc-switch-tool/active.env
+~/.bashrc
 ```
 
-Codex 配置使用 `env_key = "OPENAI_API_KEY"`。如果当前 shell 没有导出 key，
-可以运行：
-
-```bash
-eval "$(cc-switch env codex)"
-```
+Codex 配置使用 `env_key = "OPENAI_API_KEY"`。当前启用的 key 也会写入
+`~/.cc-switch-tool/active.env`，并且 `cc-switch use` 会在 `~/.bashrc` 中安装
+自动加载片段（如果存在 `~/.zshrc` 也会写入）。启动 Codex 前请新开一个 shell，
+或者运行 `source ~/.bashrc`。
 
 `cc-switch use gemini <name>` 会更新：
 
 ```text
 ~/.gemini/settings.json
 ~/.gemini/.env
+~/.cc-switch-tool/active.env
+~/.bashrc
 ```
 
 其中 `.env` 会写入 `GEMINI_API_KEY` 和 `GOOGLE_GEMINI_BASE_URL`。
+
+云恢复和从 GUI 备份导入配置后，会自动重新应用 active 配置，所以目标 CLI 配置文件
+和当前 shell 环境文件会在同一步更新。
 
 如果删除的是当前启用配置，本地 active 记录也会一并清除。
 

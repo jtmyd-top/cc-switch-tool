@@ -8,6 +8,7 @@ versions, because its first job is to find or install a Python 3.9+ runtime.
 import argparse
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -16,6 +17,13 @@ import sys
 MIN_PYTHON = (3, 9)
 DEFAULT_PROJECT_URL = "git+https://github.com/jtmyd-top/cc-switch-tool.git"
 VENV_DIR = os.path.expanduser("~/.local/share/cc-switch-tool/venv")
+
+NODE_REQUIRED_MAJOR = 20
+NPM_PACKAGES = (
+    ("Codex CLI", "codex", "@openai/codex"),
+    ("Claude Code", "claude", "@anthropic-ai/claude-code"),
+    ("Gemini CLI", "gemini", "@google/gemini-cli"),
+)
 
 
 def main():
@@ -34,6 +42,11 @@ def main():
         help="pip-installable project URL or path",
     )
     parser.add_argument("--yes", "-y", action="store_true", help="answer yes to prompts")
+    parser.add_argument(
+        "--skip-clis",
+        action="store_true",
+        help="skip installing the bundled AI CLI tools (codex, claude, gemini)",
+    )
     args = parser.parse_args()
 
     # When piped (curl | python3), stdin is not a tty — auto-confirm prompts
@@ -65,7 +78,7 @@ def main():
     if method == "pipx":
         rc = install_with_pipx(py, args.project_url, args.yes)
     elif method == "pip-user":
-        rc = run(py + ["-m", "pip", "install", "--user", args.project_url])
+        rc = pip_install_user(py, args.project_url)
     elif method == "venv":
         rc = install_with_venv(py, args.project_url)
     else:
@@ -75,6 +88,8 @@ def main():
         return rc
 
     post_install_fixup()
+    if not args.skip_clis:
+        install_node_clis(args.yes)
     return 0
 
 
@@ -317,13 +332,13 @@ def install_python():
 def install_with_pipx(py, project_url, assume_yes):
     if len(py) != 1:
         print("pipx needs a Python executable path; falling back to pip --user.")
-        return run(py + ["-m", "pip", "install", "--user", project_url])
+        return pip_install_user(py, project_url)
 
     # Old pipx (< 1.0) cannot install from git URLs. Check version first.
     pipx = shutil.which("pipx")
     if pipx and not _pipx_supports_urls(pipx):
         print("System pipx is too old for git URLs. Installing with pip --user.")
-        return run(py + ["-m", "pip", "install", "--user", project_url])
+        return pip_install_user(py, project_url)
 
     # Try pipx via the compatible Python module (avoids old system pipx)
     pipx_via_module = _pipx_module_available(py)
@@ -332,25 +347,25 @@ def install_with_pipx(py, project_url, assume_yes):
         if rc == 0:
             return 0
         print("pipx module install failed; falling back to pip --user.")
-        return run(py + ["-m", "pip", "install", "--user", project_url])
+        return pip_install_user(py, project_url)
 
     if not pipx:
         print("pipx was not found.")
         if not confirm("Install pipx with '{0} -m pip install --user pipx'?".format(format_cmd(py)), assume_yes):
             return 1
-        rc = run(py + ["-m", "pip", "install", "--user", "pipx"])
+        rc = pip_install_user(py, "pipx")
         if rc != 0:
             print("Failed to install pipx. Falling back to pip --user.")
-            return run(py + ["-m", "pip", "install", "--user", project_url])
+            return pip_install_user(py, project_url)
         pipx = shutil.which("pipx") or os.path.expanduser("~/.local/bin/pipx")
         if not os.path.exists(pipx):
             print("pipx installed, but it is not on PATH. Falling back to pip --user.")
-            return run(py + ["-m", "pip", "install", "--user", project_url])
+            return pip_install_user(py, project_url)
 
     rc = run([pipx, "install", "--python", py[0], project_url])
     if rc != 0:
         print("pipx install failed. Falling back to pip --user.")
-        return run(py + ["-m", "pip", "install", "--user", project_url])
+        return pip_install_user(py, project_url)
     return 0
 
 
@@ -373,6 +388,109 @@ def _pipx_supports_urls(pipx_path):
         return False
 
 
+def pip_install_user(py, project_url):
+    """Install a package with `py -m pip install --user`, bootstrapping pip first if missing."""
+    if not ensure_pip(py):
+        print("Could not bootstrap pip for {0}.".format(format_cmd(py)))
+        print("Install pip manually (e.g. 'sudo apt-get install python3-pip'), then rerun.")
+        return 1
+    return run(py + ["-m", "pip", "install", "--user", project_url])
+
+
+def ensure_pip(py):
+    """Make sure `py -m pip` works. Returns True on success."""
+    if _pip_available(py):
+        return True
+    print("pip not available in {0}; attempting to bootstrap it.".format(format_cmd(py)))
+
+    # 1. ensurepip ships with most Python builds and is the cleanest path.
+    rc = run(py + ["-m", "ensurepip", "--upgrade", "--default-pip"])
+    if rc == 0 and _pip_available(py):
+        return True
+
+    # 2. Try the OS package manager (covers Ubuntu's split python3.X-distutils issue).
+    if _try_install_pip_via_os(py) and _pip_available(py):
+        return True
+
+    # 3. Last resort: download get-pip.py and run it.
+    if _try_get_pip(py) and _pip_available(py):
+        return True
+
+    return False
+
+
+def _pip_available(py):
+    return run_quiet(py + ["-m", "pip", "--version"]) == 0
+
+
+def _python_minor(py):
+    """Return e.g. '3.9' for the given Python, or '' if undetectable."""
+    ver = python_version(py)
+    parts = ver.split(".") if ver else []
+    if len(parts) >= 2:
+        return "{0}.{1}".format(parts[0], parts[1])
+    return ""
+
+
+def _try_install_pip_via_os(py):
+    system = platform.system()
+    if system != "Linux":
+        return False
+    minor = _python_minor(py)  # e.g. '3.9'
+
+    if shutil.which("apt-get"):
+        # On Ubuntu, pip for python3.X often needs python3.X-distutils too.
+        candidate_sets = []
+        if minor:
+            candidate_sets.append(["python{0}-distutils".format(minor), "python3-pip"])
+            candidate_sets.append(["python{0}-pip".format(minor)])
+        candidate_sets.append(["python3-pip"])
+        for pkgs in candidate_sets:
+            if run(with_sudo(["apt-get", "install", "-y"] + pkgs)) == 0:
+                return True
+        return False
+    if shutil.which("dnf"):
+        return run(with_sudo(["dnf", "install", "-y", "python3-pip"])) == 0
+    if shutil.which("yum"):
+        return run(with_sudo(["yum", "install", "-y", "python3-pip"])) == 0
+    if shutil.which("pacman"):
+        return run(with_sudo(["pacman", "-Sy", "--noconfirm", "python-pip"])) == 0
+    if shutil.which("zypper"):
+        return run(with_sudo(["zypper", "--non-interactive", "install", "python3-pip"])) == 0
+    if shutil.which("apk"):
+        return run(with_sudo(["apk", "add", "py3-pip"])) == 0
+    return False
+
+
+def _try_get_pip(py):
+    """Download get-pip.py from pypa.io and execute it as a last-resort bootstrap."""
+    import tempfile
+    try:
+        import urllib.request
+    except ImportError:
+        return False
+
+    url = "https://bootstrap.pypa.io/get-pip.py"
+    print("Downloading {0} ...".format(url))
+    fd, tmp_path = tempfile.mkstemp(suffix="-get-pip.py")
+    os.close(fd)
+    try:
+        urllib.request.urlretrieve(url, tmp_path)
+    except Exception as exc:
+        print("Failed to download get-pip.py: {0}".format(exc))
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+        return False
+    rc = run(py + [tmp_path, "--user"])
+    try:
+        os.remove(tmp_path)
+    except OSError:
+        pass
+    return rc == 0
+
+
 def install_with_venv(py, project_url):
     rc = run(py + ["-m", "venv", VENV_DIR])
     if rc != 0:
@@ -388,6 +506,158 @@ def install_with_venv(py, project_url):
         print("Add this directory to PATH: {0}".format(bin_dir))
         print("Command path: {0}".format(os.path.join(bin_dir, "cc-switch")))
     return rc
+
+
+def install_node_clis(assume_yes):
+    """Install/update the bundled AI CLI tools (Codex / Claude Code / Gemini CLI).
+
+    Mirrors the TUI's tool_installer flow: ensure Node 20+ is present, then
+    `npm install -g <pkg>@latest` for each tool, printing before/after versions.
+    Failures here are reported but do NOT fail the overall bootstrap.
+    """
+    print("")
+    print("== Installing AI CLI tools (Codex / Claude Code / Gemini) ==")
+    if not _ensure_node(assume_yes):
+        print("Skipping AI CLI installation (Node.js {0}+ unavailable).".format(NODE_REQUIRED_MAJOR))
+        print("Re-run later from the cc-switch TUI to install them.")
+        return
+
+    npm = shutil.which("npm")
+    if not npm:
+        print("npm not found after Node install; skipping.")
+        return
+
+    print("Using node {0}, npm {1}".format(_node_version() or "?", _npm_version(npm) or "?"))
+    failures = 0
+    for label, command, pkg in NPM_PACKAGES:
+        before = _tool_version(command) or "(not installed)"
+        rc = run([npm, "install", "-g", "{0}@latest".format(pkg)])
+        after = _tool_version(command) or "(unknown)"
+        if rc == 0:
+            print("  {0}: {1}  ->  {2}".format(label, before, after))
+        else:
+            failures += 1
+            print("  {0}: install failed (exit {1})".format(label, rc))
+    if failures:
+        print("{0} CLI tool(s) failed to install. You can retry from the cc-switch TUI.".format(failures))
+
+
+def _ensure_node(assume_yes):
+    if _node_ok():
+        return True
+    return _install_node(assume_yes) and _node_ok()
+
+
+def _node_ok():
+    if not shutil.which("npm") or not shutil.which("node"):
+        return False
+    return _node_major() >= NODE_REQUIRED_MAJOR
+
+
+def _node_version():
+    node = shutil.which("node")
+    if not node:
+        return ""
+    try:
+        proc = subprocess.Popen([node, "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, _ = proc.communicate()
+    except OSError:
+        return ""
+    if proc.returncode != 0:
+        return ""
+    return out.decode("utf-8", "replace").strip()
+
+
+def _npm_version(npm):
+    try:
+        proc = subprocess.Popen([npm, "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, _ = proc.communicate()
+    except OSError:
+        return ""
+    if proc.returncode != 0:
+        return ""
+    return out.decode("utf-8", "replace").strip()
+
+
+def _node_major():
+    text = _node_version()
+    if not text:
+        return 0
+    match = re.search(r"(\d+)", text)
+    if not match:
+        return 0
+    try:
+        return int(match.group(1))
+    except ValueError:
+        return 0
+
+
+def _install_node(assume_yes):
+    commands = _node_install_commands()
+    if not commands:
+        print("Automatic Node.js installation is not supported on this system.")
+        print("Install Node.js {0}+ manually, then re-run.".format(NODE_REQUIRED_MAJOR))
+        return False
+
+    found = _node_version() or "not installed"
+    print("Node.js {0}+ is required for the AI CLI tools (current: {1}).".format(NODE_REQUIRED_MAJOR, found))
+    print("Will run:")
+    for command in commands:
+        print("  {0}".format(format_cmd(command)))
+    if not confirm("Install Node.js now?", assume_yes):
+        return False
+
+    for command in commands:
+        if run(command) != 0:
+            return False
+    if _node_major() < NODE_REQUIRED_MAJOR:
+        installed = _node_version() or "unknown"
+        print(
+            "Installed Node.js {0} is older than required {1}+.".format(installed, NODE_REQUIRED_MAJOR)
+        )
+        print("Consider installing from NodeSource: https://github.com/nodesource/distributions")
+        return False
+    return True
+
+
+def _node_install_commands():
+    system = platform.system()
+    if system == "Darwin" and shutil.which("brew"):
+        return [["brew", "install", "node"]]
+    if system == "Windows" and shutil.which("winget"):
+        return [["winget", "install", "-e", "--id", "OpenJS.NodeJS.LTS"]]
+    if system == "Linux":
+        if shutil.which("apt-get"):
+            return [
+                with_sudo(["apt-get", "update"]),
+                with_sudo(["apt-get", "install", "-y", "nodejs", "npm"]),
+            ]
+        if shutil.which("dnf"):
+            return [with_sudo(["dnf", "install", "-y", "nodejs", "npm"])]
+        if shutil.which("yum"):
+            return [with_sudo(["yum", "install", "-y", "nodejs", "npm"])]
+        if shutil.which("pacman"):
+            return [with_sudo(["pacman", "-Sy", "--noconfirm", "nodejs", "npm"])]
+        if shutil.which("zypper"):
+            return [with_sudo(["zypper", "--non-interactive", "install", "nodejs", "npm"])]
+        if shutil.which("apk"):
+            return [with_sudo(["apk", "add", "nodejs", "npm"])]
+    return []
+
+
+def _tool_version(command):
+    exe = shutil.which(command)
+    if not exe:
+        return ""
+    try:
+        proc = subprocess.Popen([exe, "--version"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        out, _ = proc.communicate()
+    except OSError:
+        return ""
+    if proc.returncode != 0:
+        return ""
+    text = out.decode("utf-8", "replace").strip()
+    return " ".join(text.split())
 
 
 def confirm(prompt, assume_yes):

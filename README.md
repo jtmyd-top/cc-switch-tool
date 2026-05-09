@@ -33,6 +33,8 @@ Use `cc-switch-tool` when you need to:
 - Chinese / English UI via `--lang`, `CCS_LANG`, or the TUI language menu.
 - WebDAV backup and restore for profile sync across machines.
 - Optional import from GUI `cc-switch` WebDAV backups.
+- One-click install/update for Codex CLI, Claude Code, and Gemini CLI from the TUI.
+- Bootstrap installer can install Node.js and the bundled AI CLI tools automatically.
 - Local secret files are written with restrictive permissions where supported.
 - API keys are redacted in `list` and `show` output by default.
 
@@ -40,6 +42,7 @@ Use `cc-switch-tool` when you need to:
 
 - Python 3.9+
 - Linux or another environment where the target CLI config files are available
+- Node.js 20+ and npm for installing/updating Codex CLI, Claude Code, and Gemini CLI
 - `pipx` recommended for isolated installation
 
 ## Installation
@@ -48,6 +51,18 @@ Bootstrap installer with a Python 3.9+ check:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jtmyd-top/cc-switch-tool/main/scripts/bootstrap_install.py | python3
+```
+
+By default, the bootstrap installer also checks Node.js 20+ and installs/updates:
+
+- `@openai/codex`
+- `@anthropic-ai/claude-code`
+- `@google/gemini-cli`
+
+Use `--skip-clis` to install only `cc-switch-tool`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jtmyd-top/cc-switch-tool/main/scripts/bootstrap_install.py | python3 - --skip-clis
 ```
 
 Recommended with `pipx`:
@@ -200,7 +215,9 @@ ccs
 ```
 
 The TUI supports profile add/edit/remove/switch workflows, WebDAV cloud sync,
-GUI backup pull, and language switching.
+GUI backup pull, language switching, and one-click install/update for Codex CLI,
+Claude Code, and Gemini CLI. If Node.js/npm is missing or too old, the TUI can
+try to install Node.js first using the system package manager.
 
 ## Language
 
@@ -240,6 +257,8 @@ This file stores:
 
 ```text
 ~/.claude/settings.json
+~/.cc-switch-tool/active.env
+~/.bashrc
 ```
 
 with:
@@ -261,23 +280,29 @@ with:
 ```text
 ~/.codex/config.toml
 ~/.cc-switch-tool/codex.env
+~/.cc-switch-tool/active.env
+~/.bashrc
 ```
 
-Codex uses `env_key = "OPENAI_API_KEY"`. If your current shell does not have
-the key exported, run:
-
-```bash
-eval "$(cc-switch env codex)"
-```
+Codex uses `env_key = "OPENAI_API_KEY"`. The active key is also written to
+`~/.cc-switch-tool/active.env`, and `cc-switch use` installs a shell startup
+loader in `~/.bashrc` (and `~/.zshrc` when it exists). Open a new shell, or
+run `source ~/.bashrc`, before starting Codex from that shell.
 
 `cc-switch use gemini <name>` updates:
 
 ```text
 ~/.gemini/settings.json
 ~/.gemini/.env
+~/.cc-switch-tool/active.env
+~/.bashrc
 ```
 
 with `GEMINI_API_KEY` and `GOOGLE_GEMINI_BASE_URL`.
+
+Cloud restore and GUI backup import re-apply active profiles after profiles are
+restored, so the target CLI config files and active shell env file are updated
+in the same step.
 
 Removing an active profile clears it from the local active-profile record.
 

@@ -13,7 +13,7 @@ from typing import Any
 
 from .store import ProfileStore, StoreError, TOOLS
 from .writers import claude, codex, gemini
-from .writers.common import redact
+from .writers.common import ensure_shell_env_loader, redact
 from .i18n import t
 
 
@@ -63,8 +63,22 @@ def _tool_label(tool: str, store: ProfileStore) -> str:
 def _apply_profile(tool: str, name: str, profile: dict[str, str]) -> list[str]:
     writer = WRITERS[tool]
     if tool == "codex":
-        return writer.apply_profile(profile, name)
-    return writer.apply_profile(profile)
+        changed = writer.apply_profile(profile, name)
+    else:
+        changed = writer.apply_profile(profile)
+    changed.extend(ensure_shell_env_loader())
+    return changed
+
+
+def _apply_all_active_profiles(store: ProfileStore) -> list[str]:
+    changed: list[str] = []
+    for tool in TOOLS:
+        active = store.get_active_name(tool)
+        if not active:
+            continue
+        profile = store.get_profile(tool, active)
+        changed.extend(_apply_profile(tool, active, profile))
+    return changed
 
 
 def _ask_text(q, message: str, *, default: str = "", required: bool = True) -> str | None:
@@ -290,12 +304,6 @@ def _activate(q, store: ProfileStore, tool: str, name: str) -> None:
     q.print(t("Using {tool}/{name}", tool=tool, name=name), style="fg:#5fd75f")
     for path in changed:
         q.print(t("  updated {path}", path=path))
-    if tool == "codex":
-        q.print(
-            t('hint: run  eval "$(cc-switch env codex)"  '
-              "if your shell does not have OPENAI_API_KEY yet"),
-            style="fg:#888888",
-        )
 
 
 # ----------------------------------------------------------------- cloud sync
@@ -512,6 +520,12 @@ def _cloud_restore_flow(q, store: ProfileStore) -> None:
     )
     if result.backup_local_path:
         q.print(t("  Previous local profiles archived at: {path}", path=result.backup_local_path), style="fg:#888888")
+    store.data = store._load()
+    changed = _apply_all_active_profiles(store)
+    if changed:
+        q.print(t("Re-applied active profiles:"), style="fg:#5fd75f")
+        for path in changed:
+            q.print(t("  updated {path}", path=path), style="fg:#888888")
 
 
 def _cloud_forget_flow(q, store: ProfileStore) -> None:
@@ -614,6 +628,12 @@ def _cloud_pull_flow(q, store: ProfileStore) -> None:
             q.print(f"  - {label}", style="fg:#888888")
     if not result.added and not result.updated:
         q.print(t("No new profiles to import."), style="fg:#ffd75f")
+        return
+    changed = _apply_all_active_profiles(store)
+    if changed:
+        q.print(t("Re-applied active profiles:"), style="fg:#5fd75f")
+        for path in changed:
+            q.print(t("  updated {path}", path=path), style="fg:#888888")
 
 
 def _cloud_menu(q, store: ProfileStore) -> None:
@@ -710,6 +730,86 @@ def _upgrade_flow(q) -> None:
         q.print(t("Upgrade failed with exit code {code}", code=rc), style="fg:#ff5555")
 
 
+def _install_cli_tools_flow(q) -> None:
+    from .tool_installer import (
+        CLI_TOOLS,
+        NodeInstallUnsupported,
+        ToolInstallError,
+        format_command,
+        check_prerequisites,
+        format_version,
+        install_nodejs,
+        install_or_update_tool,
+        installed_tool_version,
+        needs_node_install,
+        node_install_commands,
+    )
+
+    try:
+        if needs_node_install():
+            q.print(t("Node.js is missing or too old."), style="fg:#ffd75f")
+            q.print(t("Planned Node.js install commands:"), style="fg:#888888")
+            try:
+                for command in node_install_commands():
+                    q.print(f"  {format_command(command)}", style="fg:#888888")
+            except NodeInstallUnsupported as exc:
+                q.print(t("Error: {error}", error=exc), style="fg:#ff5555")
+                return
+            if not q.confirm(t("Install Node.js first, then install/update the CLI tools?"), default=True).ask():
+                return
+            rc = install_nodejs()
+            if rc != 0:
+                q.print(t("Node.js installation failed with exit code {code}.", code=rc), style="fg:#ff5555")
+                return
+        npm, node = check_prerequisites()
+    except ToolInstallError as exc:
+        q.print(t("Error: {error}", error=exc), style="fg:#ff5555")
+        return
+
+    q.print(t("Node.js: {version}", version=node), style="fg:#87afff")
+    q.print(t("Installer: {path}", path=npm), style="fg:#888888")
+    q.print(t("Will install/update:"), style="fg:#87afff")
+    for tool in CLI_TOOLS:
+        version = format_version(installed_tool_version(tool.command))
+        q.print(
+            t("  {name}: {version}  ({package})", name=tool.name, version=version, package=tool.npm_package),
+            style="fg:#888888",
+        )
+
+    confirm = q.confirm(t("Install/update all CLI tools now?"), default=True).ask()
+    if not confirm:
+        return
+
+    failed = 0
+    for tool in CLI_TOOLS:
+        q.print(t("Installing/updating {name}...", name=tool.name), style="fg:#87afff")
+        result = install_or_update_tool(tool, npm)
+        if result.returncode == 0:
+            q.print(
+                t(
+                    "{name}: {before} -> {after}",
+                    name=tool.name,
+                    before=format_version(result.before_version),
+                    after=format_version(result.after_version),
+                ),
+                style="fg:#5fd75f",
+            )
+        else:
+            failed += 1
+            q.print(
+                t("{name} failed with exit code {code}", name=tool.name, code=result.returncode),
+                style="fg:#ff5555",
+            )
+
+    if failed:
+        q.print(
+            t("{count} CLI tool(s) failed to install/update.", count=failed),
+            style="fg:#ff5555",
+        )
+    else:
+        q.print(t("All CLI tools are installed/updated."), style="fg:#5fd75f")
+
+
 def run_tui() -> int:
     if not sys.stdin.isatty() or not sys.stdout.isatty():
         raise TUIUnavailable(t("interactive TUI requires a TTY"))
@@ -722,6 +822,7 @@ def run_tui() -> int:
         ]
         choices.append(q.Separator())
         choices.append(q.Choice(title=_cloud_summary_label(store), value=("cloud", None)))
+        choices.append(q.Choice(title=t("⬇ install/update CLI tools"), value=("install_tools", None)))
         choices.append(q.Choice(title=t("↻ upgrade program"), value=("upgrade", None)))
         choices.append(q.Choice(title=_lang_label(), value=("lang", None)))
         choices.append(q.Separator())
@@ -740,6 +841,8 @@ def run_tui() -> int:
             _tool_menu(q, store, value)
         elif kind == "cloud":
             _cloud_menu(q, store)
+        elif kind == "install_tools":
+            _install_cli_tools_flow(q)
         elif kind == "upgrade":
             _upgrade_flow(q)
         elif kind == "lang":

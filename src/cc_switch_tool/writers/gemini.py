@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .common import http_get, read_json, set_nested, update_env_file, write_json
+from .common import http_get, read_json, set_nested, update_active_env, update_env_file, write_json
 
 
 SETTINGS_PATH = Path("~/.gemini/settings.json")
 ENV_PATH = Path("~/.gemini/.env")
+ENV_KEYS = ("GEMINI_API_KEY", "GOOGLE_GEMINI_BASE_URL")
 
 
 def apply_profile(profile: dict[str, str]) -> list[str]:
@@ -21,7 +22,8 @@ def apply_profile(profile: dict[str, str]) -> list[str]:
         },
         mode=0o600,
     )
-    return [str(SETTINGS_PATH.expanduser()), str(ENV_PATH.expanduser())]
+    active_env = update_active_env(env_exports(profile), remove_keys=ENV_KEYS)
+    return [str(SETTINGS_PATH.expanduser()), str(ENV_PATH.expanduser()), active_env]
 
 
 def env_exports(profile: dict[str, str]) -> dict[str, str]:

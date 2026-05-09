@@ -4,11 +4,12 @@ from pathlib import Path
 
 import tomlkit
 
-from .common import atomic_write_text, http_get, shell_export
+from .common import atomic_write_text, http_get, shell_export, update_active_env
 
 
 CONFIG_PATH = Path("~/.codex/config.toml")
 ENV_PATH = Path("~/.cc-switch-tool/codex.env")
+ENV_KEYS = ("OPENAI_API_KEY",)
 
 
 def _read_config() -> tomlkit.TOMLDocument:
@@ -41,7 +42,8 @@ def apply_profile(profile: dict[str, str], profile_name: str) -> list[str]:
 
     atomic_write_text(CONFIG_PATH, tomlkit.dumps(config), mode=0o600)
     atomic_write_text(ENV_PATH, shell_export("OPENAI_API_KEY", profile["api_key"]) + "\n", mode=0o600)
-    return [str(CONFIG_PATH.expanduser()), str(ENV_PATH.expanduser())]
+    active_env = update_active_env(env_exports(profile), remove_keys=ENV_KEYS)
+    return [str(CONFIG_PATH.expanduser()), str(ENV_PATH.expanduser()), active_env]
 
 
 def env_exports(profile: dict[str, str]) -> dict[str, str]:
