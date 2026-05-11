@@ -115,13 +115,19 @@ class SyncManager:
                 raise SyncError(str(exc)) from exc
 
         client = self._client(config)
+        content_type = "application/octet-stream" if encrypted else "application/json"
         try:
             client.ensure_directory(config.remote_dir)
-            response = client.put(
-                config.remote_path,
-                payload,
-                content_type=("application/octet-stream" if encrypted else "application/json"),
-            )
+            try:
+                response = client.put(config.remote_path, payload, content_type=content_type)
+            except WebDAVError as exc:
+                # AList and some other WebDAV gateways return 405 on PUT
+                # overwrite because their storage driver lacks in-place update;
+                # DELETE + PUT succeeds.
+                if exc.status != 405:
+                    raise
+                client.delete(config.remote_path, missing_ok=True)
+                response = client.put(config.remote_path, payload, content_type=content_type)
         except WebDAVError as exc:
             raise SyncError(t("WebDAV backup failed: {error}", error=exc)) from exc
 
