@@ -346,6 +346,12 @@ def cmd_current(args: argparse.Namespace, store: ProfileStore) -> None:
 def cmd_remove(args: argparse.Namespace, store: ProfileStore) -> None:
     store.remove_profile(args.tool, args.name)
     print(t("Removed {tool}/{name}", tool=args.tool, name=args.name))
+    if args.tool == "codex":
+        active = store.get_active_name("codex")
+        if active:
+            apply_active_profile(
+                "codex", active, store.get_profile("codex", active), store=store
+            )
 
 
 def cmd_show(args: argparse.Namespace, store: ProfileStore) -> None:

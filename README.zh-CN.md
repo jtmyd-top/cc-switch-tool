@@ -295,10 +295,21 @@ TUI 菜单里也可以切换语言。保存后的语言配置位于：
 ~/.bashrc
 ```
 
-Codex 配置使用 `env_key = "OPENAI_API_KEY"`。当前启用的 key 也会写入
-`~/.cc-switch-tool/active.env`，并且 `cc-switch use` 会在 `~/.bashrc` 中安装
-自动加载片段（如果存在 `~/.zshrc` 也会写入）。启动 Codex 前请新开一个 shell，
-或者运行 `source ~/.bashrc`。
+每个 codex 配置会拿到独立的环境变量名 `CODEX_API_KEY_<NAME>`（例如配置名
+`factory` → `CODEX_API_KEY_FACTORY`），`config.toml` 通过 `env_key` 指向它。
+全部 key 会一次性写进 `~/.cc-switch-tool/active.env`，并且 `cc-switch use`
+会在 `~/.bashrc` 中安装自动加载片段（如果存在 `~/.zshrc` 也会写入）。新开
+shell 后所有 codex 配置的 key 就同时进入环境变量。
+
+之后切换 codex 配置只是改 `config.toml` 的指针，**不需要再动环境变量**，因此
+`cc-switch use codex <name>` 在任何已经开着的终端里都能即时生效。
+
+升级后首次切换、或新增 profile 后第一次使用，当前 shell 的环境变量还是旧的；
+`cc-switch use` 会检测这种情况并打印一次性提示，让你 `source ~/.cc-switch-tool/active.env`
+或者重开一个终端。之后提示会自动消失。
+
+`OPENAI_API_KEY` 也会写到 `active.env` 里指向当前生效配置的 key，方便其他
+依赖该变量的工具（如 openai SDK）使用。
 
 `cc-switch use gemini <name>` 会更新：
 

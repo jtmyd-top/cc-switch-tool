@@ -98,6 +98,7 @@ def apply_profile(
                 other_profile["base_url"],
                 env_key_for_profile(other_name),
             )
+        _prune_stale_provider_tables(providers, all_profiles)
 
     atomic_write_text(CONFIG_PATH, tomlkit.dumps(config), mode=0o600)
     atomic_write_text(
@@ -125,6 +126,33 @@ def _write_provider_table(
     table["name"] = provider
     table["base_url"] = base_url
     table["env_key"] = env_key
+
+
+def _prune_stale_provider_tables(
+    providers: tomlkit.items.Table,
+    all_profiles: dict[str, dict[str, str]],
+) -> list[str]:
+    """Drop ``[model_providers.X]`` blocks ccs wrote but no longer manages.
+
+    A block is ours if its ``env_key`` starts with ``CODEX_API_KEY_``. If that
+    env_key is not produced by any current ccs codex profile, the block was
+    left behind from a since-deleted profile and is safe to remove. Blocks
+    using any other ``env_key`` (e.g. user-managed ``OPENAI_API_KEY``) are
+    left untouched.
+    """
+    expected = {env_key_for_profile(name) for name in all_profiles}
+    removed: list[str] = []
+    for provider_name in list(providers.keys()):
+        block = providers.get(provider_name)
+        if not hasattr(block, "get"):
+            continue
+        env_key = block.get("env_key")
+        if not isinstance(env_key, str) or not env_key.startswith(ENV_KEY_PREFIX):
+            continue
+        if env_key not in expected:
+            del providers[provider_name]
+            removed.append(provider_name)
+    return removed
 
 
 def env_exports(

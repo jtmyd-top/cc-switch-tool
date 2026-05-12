@@ -298,10 +298,24 @@ with:
 ~/.bashrc
 ```
 
-Codex uses `env_key = "OPENAI_API_KEY"`. The active key is also written to
-`~/.cc-switch-tool/active.env`, and `cc-switch use` installs a shell startup
-loader in `~/.bashrc` (and `~/.zshrc` when it exists). Open a new shell, or
-run `source ~/.bashrc`, before starting Codex from that shell.
+Each codex profile gets its own env var named `CODEX_API_KEY_<NAME>` (e.g.
+profile `factory` → `CODEX_API_KEY_FACTORY`), and that name is what
+`config.toml` references via `env_key`. All keys are written to
+`~/.cc-switch-tool/active.env` at once, and `cc-switch use` installs a shell
+startup loader in `~/.bashrc` (and `~/.zshrc` when it exists) so a freshly
+opened shell ends up with every key set permanently. After that, switching
+codex profiles is purely a `config.toml` change — no env var ever has to
+mutate, so subsequent `cc-switch use codex <name>` calls take effect
+immediately in any already-open shell.
+
+The very first time you switch (right after install/upgrade or after adding
+a brand-new profile), the current shell still has stale or missing env vars.
+`cc-switch use` detects this and prints a one-time reminder telling you to
+either run `source ~/.cc-switch-tool/active.env` or open a new terminal.
+After that, the reminder stays silent.
+
+`OPENAI_API_KEY` is also set in `active.env` to the active profile's key
+for compatibility with other tools (e.g. the openai SDK).
 
 `cc-switch use gemini <name>` updates:
 

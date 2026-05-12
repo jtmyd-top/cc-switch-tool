@@ -278,6 +278,18 @@ def _remove_profile_flow(q, store: ProfileStore, tool: str) -> None:
         q.print(t("Error: {error}", error=exc), style="fg:#ff5555")
         return
     q.print(t("Removed {tool}/{name}", tool=tool, name=target), style="fg:#5fd75f")
+    if tool == "codex":
+        active = store.get_active_name("codex")
+        if active:
+            try:
+                _apply_profile(
+                    "codex",
+                    active,
+                    store.get_profile("codex", active),
+                    store=store,
+                )
+            except StoreError as exc:
+                q.print(t("Error: {error}", error=exc), style="fg:#ff5555")
 
 
 def _tool_menu(q, store: ProfileStore, tool: str) -> None:
