@@ -20,10 +20,18 @@ WRITERS = {
 }
 
 
-def apply_active_profile(tool: str, name: str, profile: dict[str, str]) -> list[str]:
+def apply_active_profile(
+    tool: str,
+    name: str,
+    profile: dict[str, str],
+    store: ProfileStore | None = None,
+) -> list[str]:
     writer = WRITERS[tool]
     if tool == "codex":
-        changed = writer.apply_profile(profile, name)
+        all_profiles = (
+            store.list_profiles("codex")["codex"] if store is not None else None
+        )
+        changed = writer.apply_profile(profile, name, all_profiles=all_profiles)
     else:
         changed = writer.apply_profile(profile)
     changed.extend(ensure_shell_env_loader())
@@ -37,8 +45,29 @@ def apply_all_active_profiles(store: ProfileStore) -> list[str]:
         if not active:
             continue
         profile = store.get_profile(tool, active)
-        changed.extend(apply_active_profile(tool, active, profile))
+        changed.extend(apply_active_profile(tool, active, profile, store=store))
     return changed
+
+
+def _print_codex_shell_reminder(profile_name: str, profile: dict[str, str]) -> None:
+    """Print a one-time hint if the parent shell hasn't loaded the new env var.
+
+    Naturally fires only when needed: fresh install, freshly added profile, or
+    a shell that started before active.env existed. After the user opens a new
+    terminal once (or sources active.env), this stops firing.
+    """
+    if not codex.shell_needs_reload(profile_name, profile["api_key"]):
+        return
+    env_var = codex.env_key_for_profile(profile_name)
+    print()
+    print(t(
+        "Heads up: your current shell has not loaded {var} yet, so codex "
+        "would still see the old/missing key.",
+        var=env_var,
+    ))
+    print(t("  Run once to take effect now:"))
+    print("      source ~/.cc-switch-tool/active.env")
+    print(t("  Or open a new terminal. After that, switching is instant forever."))
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -246,10 +275,12 @@ def cmd_add(args: argparse.Namespace, store: ProfileStore) -> None:
 
 def cmd_use(args: argparse.Namespace, store: ProfileStore) -> None:
     profile = store.set_active(args.tool, args.name)
-    changed = apply_active_profile(args.tool, args.name, profile)
+    changed = apply_active_profile(args.tool, args.name, profile, store=store)
     print(t("Using {tool}/{name}", tool=args.tool, name=args.name))
     for path in changed:
         print(t("Updated {path}", path=path))
+    if args.tool == "codex":
+        _print_codex_shell_reminder(args.name, profile)
 
 
 def cmd_edit(args: argparse.Namespace, store: ProfileStore) -> None:
@@ -278,10 +309,12 @@ def cmd_edit(args: argparse.Namespace, store: ProfileStore) -> None:
     )
     print(t("Updated {tool}/{name}", tool=args.tool, name=args.name))
     if store.get_active_name(args.tool) == args.name:
-        changed = apply_active_profile(args.tool, args.name, profile)
+        changed = apply_active_profile(args.tool, args.name, profile, store=store)
         print(t("Re-applied active profile {tool}/{name}", tool=args.tool, name=args.name))
         for path in changed:
             print(t("  updated {path}", path=path))
+        if args.tool == "codex":
+            _print_codex_shell_reminder(args.name, profile)
 
 
 def cmd_list(args: argparse.Namespace, store: ProfileStore) -> None:
@@ -324,10 +357,16 @@ def cmd_show(args: argparse.Namespace, store: ProfileStore) -> None:
 
 def cmd_env(args: argparse.Namespace, store: ProfileStore) -> None:
     if args.name:
-        profile = store.get_profile(args.tool, args.name)
+        name = args.name
+        profile = store.get_profile(args.tool, name)
     else:
-        _, profile = store.get_active_profile(args.tool)
-    exports = WRITERS[args.tool].env_exports(profile)
+        name, profile = store.get_active_profile(args.tool)
+    writer = WRITERS[args.tool]
+    if args.tool == "codex":
+        all_profiles = store.list_profiles("codex")["codex"]
+        exports = writer.env_exports(profile, name, all_profiles)
+    else:
+        exports = writer.env_exports(profile)
     for key, value in exports.items():
         print(shell_export(key, value))
 

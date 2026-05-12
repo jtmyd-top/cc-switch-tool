@@ -138,6 +138,13 @@ _ZH: dict[str, str] = {
     "Updated {path}": "已更新 {path}",
     "Run this in your shell if Codex does not already have OPENAI_API_KEY:":
         "如果当前 shell 还没有 OPENAI_API_KEY，请运行：",
+    "Heads up: your current shell has not loaded {var} yet, so codex "
+    "would still see the old/missing key.":
+        "提示：当前 shell 还没有加载 {var}，codex 启动时仍会拿到旧/缺失的 key。",
+    "  Run once to take effect now:":
+        "  立刻生效请运行一次：",
+    "  Or open a new terminal. After that, switching is instant forever.":
+        "  或新开一个终端。此后任何 codex 切换都是即时生效。",
     "Re-applied active profile {tool}/{name}":
         "已重新应用生效配置 {tool}/{name}",
     "  updated {path}": "  已更新 {path}",

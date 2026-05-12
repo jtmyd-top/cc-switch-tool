@@ -60,10 +60,18 @@ def _tool_label(tool: str, store: ProfileStore) -> str:
     return f"{tool:<7}  active: {active}  ({count} profile{'s' if count != 1 else ''})"
 
 
-def _apply_profile(tool: str, name: str, profile: dict[str, str]) -> list[str]:
+def _apply_profile(
+    tool: str,
+    name: str,
+    profile: dict[str, str],
+    store: ProfileStore | None = None,
+) -> list[str]:
     writer = WRITERS[tool]
     if tool == "codex":
-        changed = writer.apply_profile(profile, name)
+        all_profiles = (
+            store.list_profiles("codex")["codex"] if store is not None else None
+        )
+        changed = writer.apply_profile(profile, name, all_profiles=all_profiles)
     else:
         changed = writer.apply_profile(profile)
     changed.extend(ensure_shell_env_loader())
@@ -77,8 +85,29 @@ def _apply_all_active_profiles(store: ProfileStore) -> list[str]:
         if not active:
             continue
         profile = store.get_profile(tool, active)
-        changed.extend(_apply_profile(tool, active, profile))
+        changed.extend(_apply_profile(tool, active, profile, store=store))
     return changed
+
+
+def _print_codex_shell_reminder(q, profile_name: str, profile: dict[str, str]) -> None:
+    if not codex.shell_needs_reload(profile_name, profile["api_key"]):
+        return
+    env_var = codex.env_key_for_profile(profile_name)
+    q.print("")
+    q.print(
+        t(
+            "Heads up: your current shell has not loaded {var} yet, so codex "
+            "would still see the old/missing key.",
+            var=env_var,
+        ),
+        style="fg:#ffd75f",
+    )
+    q.print(t("  Run once to take effect now:"), style="fg:#ffd75f")
+    q.print("      source ~/.cc-switch-tool/active.env", style="fg:#ffd75f")
+    q.print(
+        t("  Or open a new terminal. After that, switching is instant forever."),
+        style="fg:#ffd75f",
+    )
 
 
 def _ask_text(q, message: str, *, default: str = "", required: bool = True) -> str | None:
@@ -208,13 +237,15 @@ def _edit_profile_flow(q, store: ProfileStore, tool: str) -> str | None:
 
     if store.get_active_name(tool) == target:
         try:
-            changed = _apply_profile(tool, target, updated)
+            changed = _apply_profile(tool, target, updated, store=store)
         except StoreError as exc:
             q.print(t("Error: {error}", error=exc), style="fg:#ff5555")
             return target
         q.print(t("Re-applied active profile {tool}/{name}", tool=tool, name=target), style="fg:#5fd75f")
         for path in changed:
             q.print(t("  updated {path}", path=path))
+        if tool == "codex":
+            _print_codex_shell_reminder(q, target, updated)
     return target
 
 
@@ -297,13 +328,15 @@ def _tool_menu(q, store: ProfileStore, tool: str) -> None:
 def _activate(q, store: ProfileStore, tool: str, name: str) -> None:
     try:
         profile = store.set_active(tool, name)
-        changed = _apply_profile(tool, name, profile)
+        changed = _apply_profile(tool, name, profile, store=store)
     except StoreError as exc:
         q.print(t("Error: {error}", error=exc), style="fg:#ff5555")
         return
     q.print(t("Using {tool}/{name}", tool=tool, name=name), style="fg:#5fd75f")
     for path in changed:
         q.print(t("  updated {path}", path=path))
+    if tool == "codex":
+        _print_codex_shell_reminder(q, name, profile)
 
 
 # ----------------------------------------------------------------- cloud sync

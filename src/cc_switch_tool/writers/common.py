@@ -103,6 +103,27 @@ def update_env_file(path: str | Path, values: dict[str, str], mode: int | None =
     atomic_write_text(resolved, "\n".join(updated) + "\n", mode=mode)
 
 
+def extract_env_keys_with_prefix(path: str | Path, prefix: str) -> list[str]:
+    """Return env var names (with ``prefix``) that appear in a shell env file.
+
+    Used to find stale ``CODEX_API_KEY_*`` entries when a codex profile has been
+    deleted, so they can be passed to ``update_shell_env_file`` as ``remove_keys``.
+    """
+    resolved = expand(path)
+    if not resolved.exists():
+        return []
+    assignment = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=")
+    found: list[str] = []
+    for line in resolved.read_text(encoding="utf-8").splitlines():
+        match = assignment.match(line)
+        if not match:
+            continue
+        key = match.group(1)
+        if key.startswith(prefix) and key not in found:
+            found.append(key)
+    return found
+
+
 def update_shell_env_file(
     path: str | Path,
     values: dict[str, str],
