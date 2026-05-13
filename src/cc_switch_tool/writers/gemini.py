@@ -12,6 +12,8 @@ ENV_KEYS = ("GEMINI_API_KEY", "GOOGLE_GEMINI_BASE_URL")
 
 def apply_profile(profile: dict[str, str]) -> list[str]:
     settings = read_json(SETTINGS_PATH, default={})
+    if profile.get("model"):
+        set_nested(settings, ("model", "name"), profile["model"])
     set_nested(settings, ("security", "auth", "selectedType"), "gemini-api-key")
     write_json(SETTINGS_PATH, settings, mode=0o600)
     update_env_file(
